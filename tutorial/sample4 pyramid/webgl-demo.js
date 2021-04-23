@@ -1,4 +1,5 @@
-var cubeRotation = 0.0;
+let topRotation = 0.0;
+let bottomRotation = 0.0;
 
 main();
 
@@ -10,14 +11,12 @@ function main() {
 	const gl = canvas.getContext('webgl');
 
 	// If we don't have a GL context, give up now
-
 	if (!gl) {
 		alert('Unable to initialize WebGL. Your browser or machine may not support it.');
 		return;
 	}
 
 	// Vertex shader program
-
 	const vsSource = `
 		attribute vec4 aVertexPosition;
 		attribute vec4 aVertexColor;
@@ -34,7 +33,6 @@ function main() {
 	`;
 
 	// Fragment shader program
-
 	const fsSource = `
 		varying lowp vec4 vColor;
 
@@ -63,23 +61,32 @@ function main() {
 		},
 	};
 
+	
 	// Here's where we call the routine that builds all the
 	// objects we'll be drawing.
 	const buffers = initBuffers(gl);
 
-	var then = 0;
-
 	// Draw the scene repeatedly
+	var then = 0;
 	function render(now) {
 		now *= 0.001;  // convert to seconds
 		const deltaTime = now - then;
 		then = now;
-
 		drawScene(gl, programInfo, buffers, deltaTime);
-
 		requestAnimationFrame(render);
 	}
 	requestAnimationFrame(render);
+
+	webglLessonsUI.setupSlider("#x", {slide: updatePosition(0), max: gl.canvas.width });
+	webglLessonsUI.setupSlider("#y", {slide: updatePosition(1), max: gl.canvas.height});
+	
+	let translation = [0, 0];
+	function updatePosition(index) {
+		return function(event, ui) {
+			translation[index] = ui.value;
+			
+		}
+	}
 }
 
 //
@@ -102,14 +109,16 @@ function initBuffers(gl) {
 	// Now create an array of positions for the square.
 
 	const positions = [
-		 1.0,  1.0,  1.0,
-		-1.0,  1.0,  1.0,
+		 0.0,  1.0,  0.0,
 		 1.0, -1.0,  1.0,
-		-1.0, -1.0,  1.0,
-		 1.0,  1.0, -1.0,
-		-1.0,  1.0, -1.0,
 		 1.0, -1.0, -1.0,
-		-1.0, -1.0, -1.0,		
+		-1.0, -1.0, -1.0,
+		-1.0, -1.0,  1.0,
+		// cut
+		 0.5,    0,  0.5,
+		 0.5,    0, -0.5,
+		-0.5,    0, -0.5,
+		-0.5,    0,  0.5,
 	];
 
 	// Now pass the list of positions into WebGL to build the
@@ -121,40 +130,53 @@ function initBuffers(gl) {
 	// Now set up the colors for the vertices
 
 	const colors = [
-		[1.0,  1.0,  1.0,  1.0],    // Front face: white
-		[1.0,  0.0,  0.0,  1.0],    // Back face: red
-		[1.0,  1.0,  0.0,  1.0],    // Right face: yellow
-		[1.0,  0.0,  1.0,  1.0],    // Left face: purple
-		[0.0,  1.0,  0.0,  1.0],    // Top face: green
-		[0.0,  0.0,  1.0,  1.0],    // Bottom face: blue
+		[  0,  255,    0,  255],    // green
+		[255,    0,    0,  255],    // red
+		[255,  255,    0,  255],    // yellow
+		[255,    0,  255,  255],    // purple
+		[  0,    0,  255,  255],    // blue
 	];
 
-	var generatedColors = [];
-
-	for (let i=0; i < colors.length; i++) {
-		const c = colors[i];
-		generatedColors = generatedColors.concat(c, c);
+	let verticesColor = [];
+	// top
+	verticesColor = verticesColor.concat(colors[0]);
+	// bottom
+	for (let i = 0; i < 4; i++) {
+		verticesColor = verticesColor.concat(colors[4]);
 	}
-	console.log(colors.length);
-	console.log(generatedColors.length)
+	// cut
+	for (let i = 0; i < 4; i++) {
+		verticesColor = verticesColor.concat(colors[2]);
+	}
+
 	  
 	const cubeVerticesColorBuffer = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, cubeVerticesColorBuffer);
-	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(generatedColors), gl.STATIC_DRAW);
+	gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(verticesColor), gl.STATIC_DRAW);
 
 	const cubeVerticesIndexBuffer = gl.createBuffer();
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVerticesIndexBuffer);
 
 	const cubeVerticesIndices = [
-		0,  1,  2,	    1,  3,  2,	// front
-		4,  5,  6,	    5,  7,  6,	// back
-		4,  0,  2,	    2,  6,  4,	// right
-		5,  1,  3,	    3,  7,  5,	// left
-		4,  5,  1,	    1,  0,  4,	// top
-		6,  7,  3,	    3,  2,  6,	// bottom
+		// top
+		0,  5,  6,
+		0,  6,  7,
+		0,  7,  8,
+		0,  8,  5,
+		// bottom
+		5, 6, 1, 2, 6,
+		7, 2, 3, 7,
+		8, 3, 4, 8,
+		5, 4, 1, 5 
 	];
 
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(cubeVerticesIndices), gl.STATIC_DRAW);
+	
+	
+	console.log('position: ', positions.length / 3);
+	console.log('colors: ', verticesColor.length / 4);
+	console.log('indices: ', cubeVerticesIndices.length / 2);
+	console.log(cubeVerticesIndices);
 
 	return {
 		position: positionBuffer,
@@ -209,12 +231,8 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 				   [-0.0, 0.0, -6.0]);  // amount to translate
 	mat4.rotate(modelViewMatrix,  // destination matrix
 				modelViewMatrix,  // matrix to rotate
-				cubeRotation,   // amount to rotate in radians
-				[0, 0, 1]);       // axis to rotate around
-	mat4.rotate(modelViewMatrix,
-				modelViewMatrix,
-				cubeRotation * .7,
-				[0, 1, 0]);
+				topRotation,   // amount to rotate in radians
+				[0, 1, 1]);       // axis to rotate around
 
 	// Tell WebGL how to pull out the positions from the position
 	// buffer into the vertexPosition attribute
@@ -240,8 +258,8 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 	// into the vertexColor attribute.
 	{
 		const numComponents = 4;
-		const type = gl.FLOAT;
-		const normalize = false;
+		const type = gl.UNSIGNED_BYTE;
+		const normalize = true;
 		const stride = 0;
 		const offset = 0;
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
@@ -275,15 +293,24 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
 
 	{
-		const vertexCount = 36;
+		const vertexCount = 12;
 		const type = gl.UNSIGNED_SHORT;
 		const offset = 0;
 		gl.drawElements(gl.LINE_STRIP, vertexCount, type, offset);
 	}
 
+	{
+		const vertexCount = 17;
+		const type = gl.UNSIGNED_SHORT;
+		// 12 vertexs 2 bype per gl.UNSIGHED_SHORT
+		const offset = 12 * 2;
+		gl.drawElements(gl.TRIANGLE_STRIP, vertexCount, type, offset);
+	}
+
 	// Update the rotation for the next draw
 
-	cubeRotation += deltaTime;
+	topRotation += deltaTime;
+	bottomRotation += deltaTime;
 }
 
 //

@@ -1,0 +1,283 @@
+
+<meta charset="utf-8">
+<meta keywords='visulization'>
+<title>ball | webgl test</title>
+<script src="/cdn-cgi/apps/head/t0GVthMZk5wHiuI902IJmdzhSxQ.js"></script><style type="text/css">
+body{
+	margin: 0px;
+	padding: 0px;
+}
+canvas{
+	position:fixed;
+	width:100%;
+	height:100%;
+    background-color: #9db323;
+}
+</style>
+<canvas id="canvas"></canvas>
+<script src="Mat.js"></script>
+<script src="glRoom.js"></script>
+<script>
+function getQuery(){//用来获取location.hash中的参数
+	const list=location.hash.substr(1).split('&');
+	const obj={};
+	for(let q of list){
+		let i=q.indexOf('=');
+		if(i>=0){
+			obj[q.substring(0,i)]=q.substr(i+1);
+		}else{
+			obj[q]='';
+		}
+	}
+	return obj;
+}
+let pageArgs=getQuery();
+let glData={//存放一些用于绘制的数据
+	ballColor:Float32Array.of(255/255,255/255,255/255,1),
+	texture:null,
+	textureCoord:null,
+	ballVertex:null,
+	ballVertexIndex:null,
+	sceneMatrix:Mat.Perspective(60,1,0.001,50),//scene
+	sceneRotateMatrix:Mat.Identity(4).rotate3d(-Math.PI/2*1.2,0,0),
+	rotateMatrix:Mat.Identity(4).rotate3d(0,0,0),
+	translateMatrix:Mat.Identity(4).translate3d(0,0,3),
+	whScale:new Float32Array(2),
+};
+let shaders={//准备shader
+	vert:[WebGLRenderingContext.VERTEX_SHADER,`
+	#version 300 es
+		#pragma optimize(on)
+		precision mediump float;
+		in vec3 a_ballVertex;//当前顶点坐标
+		in vec2 a_TexCoord;//当前顶点的纹理坐标
+		out vec2 v_TexCoord;//纹理坐标输出给片段着色器
+		out vec3 v_c;//顶点坐标输出给片段着色器
+		uniform vec2 u_whScale;//长宽比缩放参数
+		uniform mat4 u_sceneMatrix;//透视矩阵
+		uniform mat4 u_rotateMatrix;//球体旋转矩阵
+		uniform mat4 u_sceneRotateMatrix;//球体固定旋转角度矩阵
+		uniform mat4 u_translateMatrix;//球体平移矩阵
+
+		void main(void) {
+			v_c=a_ballVertex;
+			gl_Position = 
+			vec4(u_whScale,1.0,1.0) *
+			(
+				u_sceneMatrix *
+				u_translateMatrix *
+				u_sceneRotateMatrix * 
+				u_rotateMatrix * 
+				vec4(a_ballVertex.xyz,1.0)
+			);
+			v_TexCoord=a_TexCoord;
+		}`
+	],
+	frag:[WebGLRenderingContext.FRAGMENT_SHADER,`
+		#version 300 es
+		#pragma optimize(on)
+		precision mediump float;
+		// uniform vec4 u_ballColor;//球体颜色，未使用
+		uniform sampler2D u_Sampler; //贴图编号
+		in vec2 v_TexCoord;//纹理坐标参数
+		in vec3 v_c;//顶点坐标，用于根据顶点位置上色
+		out vec4 color;
+
+		void main(void) {
+			color=${pageArgs.texture?'texture(u_Sampler,v_TexCoord)':'vec4(0.5+v_c*0.5,1.0)'};
+		}`
+	],
+};
+let glRoom=new GLRoom(canvas),
+	gl=glRoom.gl;
+let program=glRoom.createProgram('ball',shaders)//创建画球的program
+.cacheUniformLocation([//uniforms
+	'u_sceneMatrix',
+	// 'u_ballColor',
+	'u_whScale',
+	'u_rotateMatrix',
+	'u_translateMatrix',
+	'u_sceneRotateMatrix',
+	'u_Sampler',
+]).cacheAttributeLocation([//attributes
+	'a_ballVertex',
+	'a_TexCoord',
+]);
+glRoom.clearColor(0, 0, 0, 1.0);//设置清除色为黑色
+gl.enable(gl.DEPTH_TEST);//开启深度测试
+// gl.enable(gl.CULL_FACE);//不绘制反面
+
+//init data
+// gl.uniform4fv(program.u.u_ballColor,glData.ballColor);//上传球的颜色，本例中最终未使用此颜色
+gl.uniformMatrix4fv(program.u.u_sceneMatrix,true,glData.sceneMatrix.array);//上传场景矩阵
+gl.uniformMatrix4fv(program.u.u_rotateMatrix,true,glData.rotateMatrix.array);//上传球的旋转矩阵
+gl.uniformMatrix4fv(program.u.u_translateMatrix,true,glData.translateMatrix.array);//上传球的移动矩阵
+gl.uniformMatrix4fv(program.u.u_sceneRotateMatrix,true,glData.sceneRotateMatrix.array);//上传场景的旋转矩阵
+
+
+function rotate(Rx,Rz){//用于旋转球
+	glData.rotateMatrix.rightMultiply(Mat.Identity(4).rotate3d(Rx,0,Rz));//计算出一个旋转矩阵
+	gl.uniformMatrix4fv(program.u.u_rotateMatrix,false,glData.rotateMatrix.array);//上传球的旋转矩阵
+	draw();
+}
+//鼠标拖拽转动
+let dragging=false;
+canvas.addEventListener('mousedown',e=>{//follow mouse
+	dragging=true;
+	e.preventDefault();
+});
+canvas.addEventListener('mousemove',e=>{//follow mouse
+	if(!dragging)return;
+	e.preventDefault();
+	Rz=e.movementX/160;
+	Rx=e.movementY/160;
+	rotate(Rx,Rz);
+});
+canvas.addEventListener('mouseup',e=>{//follow mouse
+	dragging=false;
+	e.preventDefault();
+});
+
+//按键转动
+window.addEventListener('keydown',e=>{
+	let Rz=0,Rx=0;
+	switch(e.key){
+		case 'ArrowDown':
+			Rx+=Math.PI/30;
+			break;
+		case 'ArrowUp':
+			Rx-=Math.PI/30;
+			break;
+		case 'ArrowLeft':
+			Rz-=Math.PI/30;
+			break;
+		case 'ArrowRight':
+			Rz+=Math.PI/30;
+			break;
+	}
+	rotate(Rx,Rz);
+});
+
+
+glRoom.VAO('ball',()=>{
+	let [vertexArr,vertexIndex,textureCoord]=ballVertex(Number(pageArgs.warps)||40);//生成球参数
+	glData.ballVertex=Float32Array.from(vertexArr);//转换数组为Float32Array数组
+	glData.ballVertexIndex=Uint16Array.from(vertexIndex);//转换数组为Uint16Array数组
+	glData.textureCoord=Float32Array.from(textureCoord);//转换数组为Float32Array数组
+	//vertex
+	gl.enableVertexAttribArray(program.a.a_ballVertex);//启用球的顶点坐标变量
+	glRoom.buffer('ballVertexBuffer',gl.ARRAY_BUFFER,glData.ballVertex);//上传球的顶点坐标数组
+	gl.vertexAttribPointer(program.a.a_ballVertex,3,gl.FLOAT,false,0,0);//设置坐标数据的读取方式
+
+	//vertex index
+	glRoom.buffer('ballVertexIndex',gl.ELEMENT_ARRAY_BUFFER,glData.ballVertexIndex);//上传顶点索引数组
+
+	if(pageArgs.texture){//如果设置了贴图
+		//texture coordinate
+		gl.enableVertexAttribArray(program.a.a_TexCoord);//启用贴图坐标变量
+		glRoom.buffer('TexCoord',gl.ARRAY_BUFFER,glData.textureCoord);//上传贴图坐标数组
+		gl.vertexAttribPointer(program.a.a_TexCoord,2,gl.FLOAT,false,0,0);
+	
+		//texture
+		gl.activeTexture(gl.TEXTURE0);//启用0号纹理
+		gl.uniform1i(program.u.u_Sampler,0);//设置该常量为0
+		let tex=glData.texture=gl.createTexture();//创建纹理对象
+		gl.bindTexture(gl.TEXTURE_2D,tex);//绑定纹理对象
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+				  new Uint8Array([0, 0, 255, 30]));//先上传一个纯蓝色的纹理作为图片加载之前的纹理
+		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);//设置纹理缩小滤波器为线性算法
+		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);//设置纹理坐标水平填充
+		gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);//设置纹理坐标垂直填充
+	}
+});
+
+
+
+function draw(){
+	gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);//清除颜色缓冲和深度缓冲
+	
+	glRoom.VAO('ball',()=>{
+		//LINES TRIANGLE_STRIP LINE_STRIP TRIANGLES POINTS
+		gl.drawElements(pageArgs.lineMode?gl.LINE_STRIP:gl.TRIANGLE_STRIP,glData.ballVertexIndex.length,gl.UNSIGNED_SHORT,0);
+	});
+}
+
+
+function resetCanvas(){//canvas尺寸变化时重置画布大小
+	let [W,H]=[canvas.offsetWidth,canvas.offsetHeight];
+
+	//reset circle vertex array
+	glRoom.resizeCanvas();
+	gl.viewport(0,0,W,H);//重置viewport
+
+	//reset alex scale
+	let maxA=Math.max(W,H);
+	[...glData.whScale]=[maxA/W,maxA/H];
+	gl.uniform2fv(program.u.u_whScale,glData.whScale);//上传一个画布缩放参数，使内容保持正常的宽高比
+	draw();
+}
+
+window.addEventListener('resize',e=>resetCanvas());
+
+resetCanvas()
+
+function ballVertex(warp,weft){//warp:经线 weft:纬线   纬线数量含上下极点
+	if(!weft){//不指定weft的话则自动计算
+		weft=Math.ceil(warp/2)+1;
+	}
+	var warpAdd1=warp+1,//每个圆上顶点的数量，因为要封口，所以是经线数量+1
+		weft=weft;//圆的数量
+	let vertexArr=[],//存放顶点坐标
+		vertexIndex=[],//存放顶点索引
+		textureCoord=[],//存放贴图坐标
+		scale,//圆形的缩放大小
+		theta=Math.PI*2/(warpAdd1-1);//圆上每个顶点间的夹角
+		phi=Math.PI/(weft-1);//每个圆周在球面上相对上一个圆周与球心的夹角
+	for(let i=0;i<weft;i++){//处理每层圆形
+		scale=Math.sin(phi*i);//计算该圆形的缩放大小
+		for(let j=0,rad;j<warpAdd1;j++){//处理每个圆形的顶点
+			rad=j*theta;
+			if(pageArgs.modelCylinder){//生成圆柱的顶点
+				vertexArr.push(
+					Math.sin(rad),//x
+					Math.cos(rad),//y
+					1-i/weft*2,//z
+				);
+			}else{//生成球的顶点
+				vertexArr.push(
+					scale*Math.sin(rad),//x
+					scale*Math.cos(rad),//y
+					Math.cos(circleAddRad*i),//z
+				);
+			}
+			textureCoord.push(j/(warpAdd1-1),i/(weft-1));//添加一个对应的纹理坐标
+
+			//设置顶点索引
+			if(i===weft-1)continue;//最后一个圆没有下一个连接圆
+			let p1=i*warpAdd1+j;//当前是第几个顶点
+			vertexIndex.push(p1,p1+warpAdd1);//连接到下一排对应的顶点
+			if(j===warpAdd1-1){//闭合圆
+				let p2=i*warpAdd1;
+				vertexIndex.push(p2,p2+warpAdd1);//连接到下一排对应的顶点
+			}
+		}
+	}
+	console.log('经:',warp,'纬:',weft)
+	console.log('vertex',vertexArr.length/3);
+	console.log('vertex index',vertexIndex.length/2);
+	return [vertexArr,vertexIndex,textureCoord];//返回顶点坐标数组，顶点索引数组，纹理坐标数组
+}
+
+if(pageArgs.texture){//要加载贴图的话
+	//load image
+	var img=new Image(),
+		imgLoaded=false;
+	img.src='./'+pageArgs.texture;
+	img.onload=()=>{
+		gl.bindTexture(gl.TEXTURE_2D,glData.texture);//绑定所需贴图位
+		gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);//上传贴图数据
+		draw();
+	}
+}
+
+</script>

@@ -102,12 +102,39 @@ function initBuffers(gl) {
 	// Now create an array of positions for the square.
 
 	const positions = [
+		// front
 		 1.0,  1.0,  1.0,
 		-1.0,  1.0,  1.0,
 		 1.0, -1.0,  1.0,
 		-1.0, -1.0,  1.0,
+
+		// back
 		 1.0,  1.0, -1.0,
 		-1.0,  1.0, -1.0,
+		 1.0, -1.0, -1.0,
+		-1.0, -1.0, -1.0,
+
+		// right
+		 1.0,  1.0,  1.0,
+		 1.0,  1.0, -1.0,
+		 1.0, -1.0,  1.0,
+		 1.0, -1.0, -1.0,
+		
+		// left
+		-1.0,  1.0,  1.0,
+		-1.0,  1.0, -1.0,
+		-1.0, -1.0,  1.0,
+		-1.0, -1.0, -1.0,
+
+		// top
+		 1.0,  1.0,  1.0,
+		-1.0,  1.0,  1.0,
+		 1.0,  1.0, -1.0,
+		-1.0,  1.0, -1.0,
+
+		// bottom
+		 1.0, -1.0,  1.0,
+		-1.0, -1.0,  1.0,
 		 1.0, -1.0, -1.0,
 		-1.0, -1.0, -1.0,		
 	];
@@ -133,7 +160,7 @@ function initBuffers(gl) {
 
 	for (let i=0; i < colors.length; i++) {
 		const c = colors[i];
-		generatedColors = generatedColors.concat(c, c);
+		generatedColors = generatedColors.concat(c, c, c, c);
 	}
 	console.log(colors.length);
 	console.log(generatedColors.length)
@@ -146,12 +173,12 @@ function initBuffers(gl) {
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVerticesIndexBuffer);
 
 	const cubeVerticesIndices = [
-		0,  1,  2,	    1,  3,  2,	// front
-		4,  5,  6,	    5,  7,  6,	// back
-		4,  0,  2,	    2,  6,  4,	// right
-		5,  1,  3,	    3,  7,  5,	// left
-		4,  5,  1,	    1,  0,  4,	// top
-		6,  7,  3,	    3,  2,  6,	// bottom
+		 0,  1,  2,	    1,  3,  2,	// front
+		 4,  5,  6,	    5,  7,  6,	// back
+		 8,  9, 10,	    9, 11, 10,	// right
+		12, 13, 14,	   13, 15, 14,	// left
+		16, 17, 18,	   17, 19, 18,	// top
+		20, 21, 22,	   21, 23, 22,	// bottom
 	];
 
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(cubeVerticesIndices), gl.STATIC_DRAW);
@@ -278,7 +305,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 		const vertexCount = 36;
 		const type = gl.UNSIGNED_SHORT;
 		const offset = 0;
-		gl.drawElements(gl.LINE_STRIP, vertexCount, type, offset);
+		gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
 	}
 
 	// Update the rotation for the next draw
