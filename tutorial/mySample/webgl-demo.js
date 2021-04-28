@@ -1,5 +1,4 @@
-let topRotation = 0.0;
-let bottomRotation = 0.0;
+let rotation = 0.0;
 
 main();
 
@@ -13,40 +12,54 @@ function main() {
 
 	// Vertex shader program 顶点着色器
 	const vsSource = `
-		attribute vec4 aVertexPosition;
-		attribute vec4 aVertexColor;
+		attribute vec4 vertexPosition;
+		attribute vec4 vertexColor;
 
-		uniform mat4 uModelViewMatrix;
-		uniform mat4 uProjectionMatrix;
+		uniform mat4 modelMatrix;
+		uniform mat4 viewMatrix;
+		uniform mat4 projectionMatrix;
 
-		varying lowp vec4 vColor;
-		varying vec3 positionForClip;
+		varying lowp vec4 color;
+		varying vec3 modelViewPosition;
 
 		void main(void) {
-			vec4 worldSpacePos = uModelViewMatrix * aVertexPosition;
-			positionForClip = worldSpacePos.xyz / worldSpacePos.w;
-			gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-			vColor = aVertexColor;
+			modelViewPosition = (viewMatrix * modelMatrix * vertexPosition).xyz;
+			gl_Position = projectionMatrix * viewMatrix * modelMatrix * vertexPosition;
+			color = vertexColor;
 		}
 	`;
 
 	// Fragment shader program 片段着色器
 	const fsSource = `
-		#ifdef GL_ES
-			precision mediump float;
-		#endif
+		precision highp float;
 
-		vec3 planeNormal = vec3(0.0, 1.0, 0.0);
-		float planeDistance = 0.0;
+		uniform mat4 viewMatrix;
+		uniform mat3 viewNormalMatrix;
+		uniform vec4 plane;
 
-		varying lowp vec4 vColor;
-		varying	vec3 positionForClip;
+		varying lowp vec4 color;
+		varying	vec3 modelViewPosition;
+
+		vec4 planeToEC(vec4 plane, mat4 viewMatrix, mat3 viewNormalMatrix) {
+			vec3 normal = vec3(plane.x, plane.y, plane.z);
+			vec3 pointInWC = normal * -plane.w;
+			vec3 pointInEC = (viewMatrix * vec4(pointInWC.xyz, 1.0)).xyz;
+			vec3 normalInEC = normalize(viewNormalMatrix * normal);
+			return vec4(normalInEC, -dot(normalInEC, pointInEC));
+		}
+
+		float calDistance(vec4 plane, vec3 position) {
+			float distance = dot(vec3(plane.x, plane.y, plane.z), position) + plane.w;
+			return distance;
+		}
 
 		void main(void) {
-			if ( dot( positionForClip, planeNormal ) > planeDistance) {
+			vec4 planeInEC = planeToEC(plane, viewMatrix, viewNormalMatrix);
+			float distance = calDistance(plane, modelViewPosition);
+			if (distance < 0.0) {
 				discard;
 			}
-			gl_FragColor = vColor;
+			gl_FragColor = color;
 		}
 	`;
 	//if (dot (positionForClip, planeNormal) > planeDistance) {
@@ -57,17 +70,20 @@ function main() {
 
 	// Collect all the info needed to use the shader program.
 	// Look up which attributes our shader program is using
-	// for aVertexPosition, aVevrtexColor and also
+	// for vertexPosition, vertexColor and also
 	// look up uniform locations.
 	const programInfo = {
 		program: shaderProgram,
 		attribLocations: {
-			vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
-			vertexColor: gl.getAttribLocation(shaderProgram, 'aVertexColor'),
+			vertexPosition: gl.getAttribLocation(shaderProgram, 'vertexPosition'),
+			vertexColor: gl.getAttribLocation(shaderProgram, 'vertexColor'),
 		},
 		uniformLocations: {
-			projectionMatrix: gl.getUniformLocation(shaderProgram, 'uProjectionMatrix'),
-			modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uModelViewMatrix'),
+			modelMatrix: gl.getUniformLocation(shaderProgram, 'modelMatrix'),
+			viewMatrix: gl.getUniformLocation(shaderProgram, 'viewMatrix'),
+			projectionMatrix: gl.getUniformLocation(shaderProgram, 'projectionMatrix'),
+			viewNormalMatrix: gl.getUniformLocation(shaderProgram, 'viewNormalMatrix'),
+			plane: gl.getUniformLocation(shaderProgram, 'plane')
 		},
 	};
 
@@ -82,10 +98,14 @@ function main() {
 		now *= 0.001;  // convert to seconds
 		const deltaTime = now - then;
 		then = now;
+		//mat3.normalFromMat4(programInfo.uniformLocations.viewNormalMatrix, programInfo.uniformLocations.viewMatrix);
+		// console.log(programInfo.uniformLocations.viewNormalMatrix);
+		// console.log(programInfo.uniformLocations.viewMatrix);
 		drawScene(gl, programInfo, buffers, deltaTime);
 		requestAnimationFrame(render);
 	}
 	requestAnimationFrame(render);
+	//drawScene(gl, programInfo, buffers, 0);
 
 	// webglLessonsUI.setupSlider("#x", {slide: updatePosition(0), max: gl.canvas.width });
 	// webglLessonsUI.setupSlider("#y", {slide: updatePosition(1), max: gl.canvas.height});
@@ -173,11 +193,13 @@ function initBuffers(gl) {
 		0,  6,  7,
 		0,  7,  8,
 		0,  8,  5,
-		// bottom
+		// bottom side
 		5, 6, 1, 2, 6,
 		7, 2, 3, 7,
 		8, 3, 4, 8,
-		5, 4, 1, 5 
+		5, 4, 1, 5,
+		// bottom bottom
+		1, 2, 3, 1, 3, 4
 	];
 
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(cubeVerticesIndices), gl.STATIC_DRAW);
@@ -186,7 +208,7 @@ function initBuffers(gl) {
 	console.log('position: ', positions.length / 3);
 	console.log('colors: ', verticesColor.length / 4);
 	console.log('indices: ', cubeVerticesIndices.length / 2);
-	console.log(cubeVerticesIndices);
+	// console.log(cubeVerticesIndices);
 
 	return {
 		position: positionBuffer,
@@ -199,7 +221,7 @@ function initBuffers(gl) {
 // Draw the scene.
 //
 function drawScene(gl, programInfo, buffers, deltaTime) {
-	gl.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
+	gl.clearColor(1.0, 1.0, 1.0, 1.0);  // Clear to black, fully opaque
 	gl.clearDepth(1.0);                 // Clear everything
 	gl.enable(gl.DEPTH_TEST);           // Enable depth testing
 	gl.depthFunc(gl.LEQUAL);            // Near things obscure far things
@@ -219,8 +241,8 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 	const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
 	const zNear = 0.1;
 	const zFar = 100.0;
-	const projectionMatrix = mat4.create();
 
+	const projectionMatrix = mat4.create();
 	// note: glmatrix.js always has the first argument
 	// as the destination to receive the result.
 	mat4.perspective(projectionMatrix,
@@ -231,18 +253,25 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
 	// Set the drawing position to the "identity" point, which is
 	// the center of the scene.
+
+	const modelMatrix = mat4.create();
+	mat4.scale(modelMatrix, modelMatrix, [2, 2, 2]);
+	mat4.rotate(modelMatrix, modelMatrix, rotation, [0, 1, 1]);
+
+	const viewMatrix = mat4.create();
+	mat4.translate(viewMatrix, viewMatrix, [-0.0, 0.0, -6.0]);
+
+	const viewNormalMatrix = mat3.create();
+	const test = mat3.create();
 	const modelViewMatrix = mat4.create();
+	mat3.normalFromMat4(test, viewMatrix);
+	// console.log(viewNormalMatrix);
+	mat4.multiply(modelViewMatrix, viewMatrix, modelMatrix);
+	mat3.normalFromMat4(viewNormalMatrix, viewMatrix);
+	// console.log(viewNormalMatrix)
 
-	// Now move the drawing position a bit to where we want to
-	// start drawing the square.
+	const plane = vec4.fromValues(1.0, 0.0, 0.0, 1.0);
 
-	mat4.translate(modelViewMatrix,     // destination matrix
-				   modelViewMatrix,     // matrix to translate
-				   [-0.0, 0.0, -6.0]);  // amount to translate
-	mat4.rotate(modelViewMatrix,  // destination matrix
-				modelViewMatrix,  // matrix to rotate
-				topRotation,   // amount to rotate in radians
-				[0, 1, 1]);       // axis to rotate around
 
 	// Tell WebGL how to pull out the positions from the position
 	// buffer into the vertexPosition attribute
@@ -292,14 +321,11 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
 	// Set the shader uniforms
 	
-	gl.uniformMatrix4fv(
-			programInfo.uniformLocations.projectionMatrix,
-			false,
-			projectionMatrix);
-	gl.uniformMatrix4fv(
-			programInfo.uniformLocations.modelViewMatrix,
-			false,
-			modelViewMatrix);
+	gl.uniformMatrix4fv(programInfo.uniformLocations.projectionMatrix, false, projectionMatrix);
+	gl.uniformMatrix4fv(programInfo.uniformLocations.modelMatrix, false, modelMatrix);
+	gl.uniformMatrix4fv(programInfo.uniformLocations.viewMatrix, false, viewMatrix);
+	gl.uniformMatrix3fv(programInfo.uniformLocations.viewNormalMatrix, false, viewNormalMatrix);
+	gl.uniform4fv(programInfo.uniformLocations.plane, plane);
 
 	{
 		const vertexCount = 12;
@@ -316,10 +342,17 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 		gl.drawElements(gl.TRIANGLE_STRIP, vertexCount, type, offset);
 	}
 
+	{
+		const vertexCount = 6;
+		const type = gl.UNSIGNED_SHORT;
+		// 12 vertexs 2 bype per gl.UNSIGHED_SHORT
+		const offset = 29 * 2;
+		gl.drawElements(gl.TRIANGLE_STRIP, vertexCount, type, offset);
+	}
+
 	// Update the rotation for the next draw
 
-	topRotation += deltaTime;
-	bottomRotation += deltaTime;
+	rotation += deltaTime;
 }
 
 //
@@ -372,3 +405,48 @@ function loadShader(gl, type, source) {
 	return shader;
 }
 
+function getNormalMatrix(matrix4) {
+	return this.setFromMatrix4(matrix4).invert().transpose();
+}
+
+function projectPlanes( planes, camera, dstOffset, skipTransform ) {
+
+	const nPlanes = planes !== null ? planes.length : 0;
+	let dstArray = null;
+
+	if ( nPlanes !== 0 ) {
+		dstArray = uniform.value;
+		if ( skipTransform !== true || dstArray === null ) {
+			const flatSize = dstOffset + nPlanes * 4,
+				viewMatrix = camera.matrixWorldInverse;
+
+			viewNormalMatrix.getNormalMatrix( viewMatrix );
+
+			if ( dstArray === null || dstArray.length < flatSize ) {
+
+				dstArray = new Float32Array( flatSize );
+
+			}
+
+			for ( let i = 0, i4 = dstOffset; i !== nPlanes; ++ i, i4 += 4 ) {
+
+				plane.copy( planes[ i ] ).applyMatrix4( viewMatrix, viewNormalMatrix );
+
+				plane.normal.toArray( dstArray, i4 );
+				dstArray[ i4 + 3 ] = plane.constant;
+
+			}
+
+		}
+
+		uniform.value = dstArray;
+		uniform.needsUpdate = true;
+
+	}
+
+	scope.numPlanes = nPlanes;
+	scope.numIntersection = 0;
+
+	return dstArray;
+
+}
