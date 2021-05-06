@@ -38,7 +38,8 @@ function main() {
 
 	const programInfo = webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
 
-	const topConeBufferInfo 	= primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 5, 0, 10, 60, 1, true, false);
+	const topConeBufferInfo		= primitives.createSphereWithVertexColorsBufferInfo(gl, 10, 60, 30)
+	// const bottomConeBufferInfo	= primitives.createTruncatedPyramidWithVertexColorsBufferInfo(gl, 10, 10, 10, 10, 10);
 	const bottomConeBufferInfo	= primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 10, 5, 10, 60, 1, true, true);
 
 	function degToRad(d) {

@@ -312,197 +312,70 @@
 	 * Creates XZ plane vertices.
 	 * The created plane has position, normal and uv streams.
 	 *
-	 * @param {number} [width] Width of the plane. Default = 1
-	 * @param {number} [depth] Depth of the plane. Default = 1
-	 * @param {number} [subdivisionsWidth] Number of steps across the plane. Default = 1
-	 * @param {number} [subdivisionsDepth] Number of steps down the plane. Default = 1
-	 * @param {Matrix4} [matrix] A matrix by which to multiply all the vertices.
+	 * @param {number} [opt_width]			Width of the plane. Default = 2
+	 * @param {number} [opt_depth]			Depth of the plane. Default = 2
+	 * @param {number} [opt_widthDivides]	Number of steps across the plane. Default = 1
+	 * @param {number} [opt_depthDivides]	Number of steps down the plane. Default = 1
+	 * @param {Matrix4} [opt_matrix]		A matrix by which to multiply all the vertices.
 	 * @return {Object.<string, TypedArray>} The
 	 *         created plane vertices.
 	 * @memberOf module:primitives
 	 */
 	function createPlaneVertices(
-			width,
-			depth,
-			subdivisionsWidth,
-			subdivisionsDepth,
-			matrix) {
-		width = width || 1;
-		depth = depth || 1;
-		subdivisionsWidth = subdivisionsWidth || 1;
-		subdivisionsDepth = subdivisionsDepth || 1;
-		matrix = matrix || m4.identity();
-
-		const numVertices = (subdivisionsWidth + 1) * (subdivisionsDepth + 1);
+			opt_width,
+			opt_depth,
+			opt_widthDivides,
+			opt_depthDivides,
+			opt_matrix) {
+		//参数定义
+		const width = opt_width || 2;
+		const depth = opt_depth || 2;
+		const widthDivides = opt_widthDivides || 1;
+		const depthDivides = opt_depthDivides || 1;
+		const matrix = opt_matrix || m4.identity();
+		const numVertices = (widthDivides + 1) * (depthDivides + 1);
+		
 		const positions = webglUtils.createAugmentedTypedArray(3, numVertices);
-		const normals = webglUtils.createAugmentedTypedArray(3, numVertices);
-		const texcoords = webglUtils.createAugmentedTypedArray(2, numVertices);
-
-		for (let z = 0; z <= subdivisionsDepth; z++) {
-			for (let x = 0; x <= subdivisionsWidth; x++) {
-				const u = x / subdivisionsWidth;
-				const v = z / subdivisionsDepth;
+		const normals 	= webglUtils.createAugmentedTypedArray(3, numVertices);
+		const texCoords = webglUtils.createAugmentedTypedArray(2, numVertices);
+		const indices	= webglUtils.createAugmentedTypedArray(3, widthDivides * depthDivides * 2, Uint16Array);
+	
+		for (let z = 0; z <= depthDivides; z++) {
+			for (let x = 0; x <= widthDivides; x++) {
+				const u = x / widthDivides;
+				const v = z / depthDivides;
 				positions.push(
-						width * u - width * 0.5,
-						0,
-						depth * v - depth * 0.5);
+					width * u - width * 0.5,
+					0,
+					depth * v - depth * 0.5
+				);
 				normals.push(0, 1, 0);
-				texcoords.push(u, v);
+				texCoords.push(u, v);
 			}
 		}
 
-		const numVertsAcross = subdivisionsWidth + 1;
-		const indices = webglUtils.createAugmentedTypedArray(
-				3, subdivisionsWidth * subdivisionsDepth * 2, Uint16Array);
-
-		for (let z = 0; z < subdivisionsDepth; z++) {
-			for (let x = 0; x < subdivisionsWidth; x++) {
-				// Make triangle 1 of quad.
+		for (let z = 0; z < depthDivides; z++) {
+			for (let x = 0; x < widthDivides; x++) {
 				indices.push(
-						(z + 0) * numVertsAcross + x,
-						(z + 1) * numVertsAcross + x,
-						(z + 0) * numVertsAcross + x + 1);
-
-				// Make triangle 2 of quad.
+					(z + 0) * (widthDivides + 1) + x,
+					(z + 1) * (widthDivides + 1) + x,
+					(z + 0) * (widthDivides + 1) + x + 1
+				);
 				indices.push(
-						(z + 1) * numVertsAcross + x,
-						(z + 1) * numVertsAcross + x + 1,
-						(z + 0) * numVertsAcross + x + 1);
+					(z + 1) * (widthDivides + 1) + x,
+					(z + 1) * (widthDivides + 1) + x + 1,
+					(z + 0) * (widthDivides + 1) + x + 1
+				);
 			}
 		}
 
 		const arrays = reorientVertices({
 			position: positions,
 			normal: normals,
-			texcoord: texcoords,
+			texcoord: texCoords,
 			indices: indices,
 		}, matrix);
 		return arrays;
-	}
-
-	function createXYQuadVertices(size, xOffset, yOffset) {
-		size = size || 2;
-		xOffset = xOffset || 0;
-		yOffset = yOffset || 0;
-		size *= 0.5;
-		return {
-			position: {
-				numComponents: 2,
-				data: [
-					xOffset + -1 * size, yOffset + -1 * size,
-					xOffset +  1 * size, yOffset + -1 * size,
-					xOffset + -1 * size, yOffset +  1 * size,
-					xOffset +  1 * size, yOffset +  1 * size,
-				],
-			},
-			normal: [
-				0, 0, 1,
-				0, 0, 1,
-				0, 0, 1,
-				0, 0, 1,
-			],
-			texcoord: [
-				0, 0,
-				1, 0,
-				0, 1,
-				1, 1,
-			],
-			indices: [ 0, 1, 2, 2, 1, 3 ],
-		};
-	}
-
-	/**
-	 * Creates sphere vertices.
-	 * The created sphere has position, normal and uv streams.
-	 *
-	 * @param {number} radius radius of the sphere.
-	 * @param {number} subdivisionsAxis number of steps around the sphere.
-	 * @param {number} subdivisionsHeight number of vertically on the sphere.
-	 * @param {number} [opt_startLatitudeInRadians] where to start the
-	 *     top of the sphere. Default = 0.
-	 * @param {number} [opt_endLatitudeInRadians] Where to end the
-	 *     bottom of the sphere. Default = Math.PI.
-	 * @param {number} [opt_startLongitudeInRadians] where to start
-	 *     wrapping the sphere. Default = 0.
-	 * @param {number} [opt_endLongitudeInRadians] where to end
-	 *     wrapping the sphere. Default = 2 * Math.PI.
-	 * @return {Object.<string, TypedArray>} The
-	 *         created plane vertices.
-	 * @memberOf module:primitives
-	 */
-	function createSphereVertices(
-			radius,
-			subdivisionsAxis,
-			subdivisionsHeight,
-			opt_startLatitudeInRadians,
-			opt_endLatitudeInRadians,
-			opt_startLongitudeInRadians,
-			opt_endLongitudeInRadians) {
-		if (subdivisionsAxis <= 0 || subdivisionsHeight <= 0) {
-			throw Error('subdivisionAxis and subdivisionHeight must be > 0');
-		}
-
-		opt_startLatitudeInRadians = opt_startLatitudeInRadians || 0;
-		opt_endLatitudeInRadians = opt_endLatitudeInRadians || Math.PI;
-		opt_startLongitudeInRadians = opt_startLongitudeInRadians || 0;
-		opt_endLongitudeInRadians = opt_endLongitudeInRadians || (Math.PI * 2);
-
-		const latRange = opt_endLatitudeInRadians - opt_startLatitudeInRadians;
-		const longRange = opt_endLongitudeInRadians - opt_startLongitudeInRadians;
-
-		// We are going to generate our sphere by iterating through its
-		// spherical coordinates and generating 2 triangles for each quad on a
-		// ring of the sphere.
-		const numVertices = (subdivisionsAxis + 1) * (subdivisionsHeight + 1);
-		const positions = webglUtils.createAugmentedTypedArray(3, numVertices);
-		const normals   = webglUtils.createAugmentedTypedArray(3, numVertices);
-		const texCoords = webglUtils.createAugmentedTypedArray(2 , numVertices);
-
-		// Generate the individual vertices in our vertex buffer.
-		for (let y = 0; y <= subdivisionsHeight; y++) {
-			for (let x = 0; x <= subdivisionsAxis; x++) {
-				// Generate a vertex based on its spherical coordinates
-				const u = x / subdivisionsAxis;
-				const v = y / subdivisionsHeight;
-				const theta = longRange * u + opt_startLongitudeInRadians;
-				const phi = latRange * v + opt_startLatitudeInRadians;
-				const sinTheta = Math.sin(theta);
-				const cosTheta = Math.cos(theta);
-				const sinPhi = Math.sin(phi);
-				const cosPhi = Math.cos(phi);
-				const ux = cosTheta * sinPhi;
-				const uy = cosPhi;
-				const uz = sinTheta * sinPhi;
-				positions.push(radius * ux, radius * uy, radius * uz);
-				normals.push(ux, uy, uz);
-				texCoords.push(1 - u, v);
-			}
-		}
-
-		const numVertsAround = subdivisionsAxis + 1;
-		const indices = webglUtils.createAugmentedTypedArray(3, subdivisionsAxis * subdivisionsHeight * 2, Uint16Array);
-		for (let x = 0; x < subdivisionsAxis; x++) {
-			for (let y = 0; y < subdivisionsHeight; y++) {
-				// Make triangle 1 of quad.
-				indices.push(
-						(y + 0) * numVertsAround + x,
-						(y + 0) * numVertsAround + x + 1,
-						(y + 1) * numVertsAround + x);
-
-				// Make triangle 2 of quad.
-				indices.push(
-						(y + 1) * numVertsAround + x,
-						(y + 0) * numVertsAround + x + 1,
-						(y + 1) * numVertsAround + x + 1);
-			}
-		}
-
-		return {
-			position: positions,
-			normal: normals,
-			texcoord: texCoords,
-			indices: indices,
-		};
 	}
 
 	/**
@@ -512,8 +385,8 @@
 	const CUBE_FACE_INDICES = [
 		[3, 7, 5, 1], // right
 		[6, 2, 0, 4], // left
-		[6, 7, 3, 2], // ??
-		[0, 1, 5, 4], // ??
+		[6, 7, 3, 2], // top
+		[0, 1, 5, 4], // bottom
 		[7, 6, 4, 5], // front
 		[2, 3, 1, 0], // back
 	];
@@ -592,6 +465,193 @@
 	}
 
 	/**
+	 * Creates vertices for a truncated pyramid. A truncated pyramid
+	 * can also be used to create cubes and regular pyramids. The
+	 * truncated pyramid will be created centered about the origin, with the
+	 * y axis as its vertical axis. The created pyramid has position, normal
+	 * and uv streams.
+	 *
+	 * @param {number} topLength	Top length of truncated pyramid.
+	 * @param {number} topWidth		Top width of truncated pyramid.
+	 * @param {number} bottomLength	Bottom length of truncated pyramid.
+	 * @param {number} bottomWidth	Bottom width of truncated pyramid.
+	 * @param {number} height		Height of truncated pyramid.
+	 * @return {Object.<string, TypedArray>} The created plane vertices.
+	 * @memberOf module:primitives
+	 */
+	function createTruncatedPyramidVertices(
+		topLength,
+		topWidth,
+		bottomLength,
+		bottomWidth,
+		height) {
+		const topX = topLength / 2;
+		const topZ = topWidth / 2;
+		const bottomX = bottomLength / 2;
+		const bottomZ = bottomWidth / 2;
+		const heightY = height / 2;
+		const slantXY = Math.atan2(bottomX - topX, height);
+		const sinSlantXY = Math.sin(slantXY);
+		const cosSlantXY = Math.cos(slantXY);
+		const slantYZ = Math.atan2(bottomZ - topZ, height);
+		const sinSlantYZ = Math.sin(slantYZ);
+		const cosSlantYZ = Math.cos(slantYZ);
+	
+		const cornerVertices = [
+			[-bottomX,	-heightY,	-bottomZ],
+			[+bottomX,	-heightY,	-bottomZ],
+			[-topX,		+heightY,	-topZ],
+			[+topX,		+heightY,	-topZ],
+			[-bottomX,	-heightY,	+bottomZ],
+			[+bottomX,	-heightY,	+bottomZ],
+			[-topX,		+heightY,	+topZ],
+			[+topX,		+heightY,	+topZ],
+		];
+	
+		const faceNormals = [
+			[+cosSlantXY, +sinSlantXY, +0],	// right
+			[-cosSlantXY, +sinSlantXY, +0],	// left
+			[+0, +1, +0],					// top
+			[+0, -1, +0],					// bottom
+			[+0, +sinSlantYZ, +cosSlantYZ],	// front
+			[+0, +sinSlantYZ, -cosSlantYZ],	// back
+		];
+	
+		const uvCoords = [
+			[1, 0],
+			[0, 0],
+			[0, 1],
+			[1, 1]
+		];
+	
+		const PYRAMID_FACE_INDICES = [
+			// The order of indices are in counter clockwise, such that
+			// the directions of faces are all towards outside.
+			[3, 7, 5, 1], // right
+			[6, 2, 0, 4], // left
+			[6, 7, 3, 2], // top
+			[0, 1, 5, 4], // bottom
+			[7, 6, 4, 5], // front
+			[2, 3, 1, 0], // back
+		  ];
+	
+		const numVertices = 6 * 4;
+		const positions = webglUtils.createAugmentedTypedArray(3, numVertices);
+		const normals   = webglUtils.createAugmentedTypedArray(3, numVertices);
+		const texCoords = webglUtils.createAugmentedTypedArray(2 , numVertices);
+		const indices   = webglUtils.createAugmentedTypedArray(3, 6 * 2, Uint16Array);
+	
+		for (let i = 0; i < 6; i++) {
+			const faceIndices = PYRAMID_FACE_INDICES[i];
+			for (let j = 0; j < 4; j++) {
+				const position = cornerVertices[faceIndices[j]];
+				const normal = faceNormals[i];
+				const uv = uvCoords[j];
+				positions.push(position);
+				normals.push(normal);
+				texCoords.push(uv)
+			}
+			const offset = 4 * i;
+			indices.push(offset + 0, offset + 1, offset + 2);
+			indices.push(offset + 0, offset + 2, offset + 3);
+		}
+	
+		return{
+			position: positions,
+			normal: normals,
+			texcoord: texCoords,
+			indices: indices
+		}
+	}
+
+	/**
+	 * Creates sphere vertices.
+	 * The created sphere has position, normal and uv streams.
+	 *
+	 * @param {number} radius radius of the sphere.
+	 * @param {number} subdivisionsAxis number of steps around the sphere.
+	 * @param {number} subdivisionsHeight number of vertically on the sphere.
+	 * @param {number} [opt_startLatitude] where to start the
+	 *     top of the sphere. Default = 0.
+	 * @param {number} [opt_endLatitude] Where to end the
+	 *     bottom of the sphere. Default = Math.PI.
+	 * @param {number} [opt_startLongitude] where to start
+	 *     wrapping the sphere. Default = 0.
+	 * @param {number} [opt_endLongitude] where to end
+	 *     wrapping the sphere. Default = 2 * Math.PI.
+	 * @return {Object.<string, TypedArray>} The
+	 *         created plane vertices.
+	 * @memberOf module:primitives
+	 */
+	function createSphereVertices(
+		radius,
+		opt_warpDivides,
+		opt_weftDivides,
+		opt_startLatitude,
+		opt_endLatitude,
+		opt_startLongitude,
+		opt_endLongitude){
+		// 参数定义
+		const warpDivides = (opt_warpDivides <= 0) ? 60 : opt_warpDivides;	// 经线分割数
+		const weftDivides = (opt_weftDivides <= 0) ? 30 : opt_weftDivides;	// 纬线分割数
+		const startLatitude = opt_startLatitude || 0;
+		const endLatitude = opt_endLatitude || Math.PI;
+		const startLongitude = opt_startLongitude || 0;
+		const endLongitude = opt_endLongitude || (Math.PI * 2);
+		const latitudeRange = endLatitude - startLatitude;
+		const longitutdeRange = endLongitude - startLongitude;
+		const numVertices = (warpDivides + 1) * (weftDivides + 1);
+
+		const positions = webglUtils.createAugmentedTypedArray(3, numVertices);
+		const normals   = webglUtils.createAugmentedTypedArray(3, numVertices);
+		const texCoords = webglUtils.createAugmentedTypedArray(2, numVertices);
+		const indices   = webglUtils.createAugmentedTypedArray(3, warpDivides * weftDivides * 2, Uint16Array);
+
+		
+		for (let y = 0; y <= weftDivides; y++) {
+			for (let x = 0; x <= warpDivides; x++) {
+				// Generate a vertex based on its spherical coordinates
+				const u = x / warpDivides;
+				const v = y / weftDivides;
+				const phi = latitudeRange * v + startLatitude;
+				const theta = longitutdeRange* u + startLongitude;
+				const sinPhi = Math.sin(phi);
+				const cosPhi = Math.cos(phi);
+				const sinTheta = Math.sin(theta);
+				const cosTheta = Math.cos(theta);
+				const unitX = cosTheta * sinPhi;
+				const unitY = cosPhi;
+				const unitZ = sinTheta * sinPhi;
+				positions.push(radius * unitX, radius * unitY, radius * unitZ);
+				normals.push(unitX, unitY, unitZ);
+				texCoords.push(1 - u, v);
+			}
+		}
+	
+		for (let x = 0; x < warpDivides; x++) {
+			for (let y = 0; y < weftDivides; y++) {
+				indices.push(
+						(y + 0) * (warpDivides + 1) + x,
+						(y + 0) * (warpDivides + 1) + x + 1,
+						(y + 1) * (warpDivides + 1) + x
+				);
+				indices.push(
+						(y + 1) * (warpDivides + 1) + x,
+						(y + 0) * (warpDivides + 1) + x + 1,
+						(y + 1) * (warpDivides + 1) + x + 1)
+				;
+			}
+		}
+	
+		return {
+			position: positions,
+			normal: normals,
+			texcoord: texCoords,
+			indices: indices,
+		};
+	}
+
+	/**
 	 * Creates vertices for a truncated cone, which is like a cylinder
 	 * except that it has different top and bottom radii. A truncated cone
 	 * can also be used to create cylinders and regular cones. The
@@ -599,98 +659,89 @@
 	 * y axis as its vertical axis. The created cone has position, normal
 	 * and uv streams.
 	 *
-	 * @param {number} bottomRadius Bottom radius of truncated cone.
-	 * @param {number} topRadius Top radius of truncated cone.
-	 * @param {number} height Height of truncated cone.
-	 * @param {number} radialSubdivisions The number of subdivisions around the
+ 	 * @param {number} topRadius				Top radius of truncated cone.
+	 * @param {number} bottomRadius				Bottom radius of truncated cone.
+	 * @param {number} height					Height of truncated cone.
+	 * @param {number} [opt_radialDivides]		The number of subdivisions around the
 	 *     truncated cone.
-	 * @param {number} verticalSubdivisions The number of subdivisions down the
+	 * @param {number} [opt_verticalDivides]	The number of subdivisions down the
 	 *     truncated cone.
-	 * @param {boolean} [opt_topCap] Create top cap. Default = true.
-	 * @param {boolean} [opt_bottomCap] Create bottom cap. Default =
-	 *        true.
-	 * @return {Object.<string, TypedArray>} The
-	 *         created plane vertices.
+	 * @param {boolean} [opt_topCap]			Create top cap. Default = true.
+	 * @param {boolean} [opt_bottomCap]			Create bottom cap. Default = true.
+	 * @return {Object.<string, TypedArray>} 	The created plane vertices.
 	 * @memberOf module:primitives
 	 */
 	function createTruncatedConeVertices(
-			bottomRadius,
-			topRadius,
-			height,
-			radialSubdivisions,
-			verticalSubdivisions,
-			opt_topCap,
-			opt_bottomCap) {
-		if (radialSubdivisions < 3) {
-			throw Error('radialSubdivisions must be 3 or greater');
-		}
-
-		if (verticalSubdivisions < 1) {
-			throw Error('verticalSubdivisions must be 1 or greater');
-		}
-
+		topRadius,
+		bottomRadius,
+		height,
+		opt_radialDivides,
+		opt_verticalDivides,
+		opt_topCap,
+		opt_bottomCap) {
+		const radialDivides = (opt_radialDivides < 3) ? 60 : opt_radialDivides;
+		const verticalDivides = (opt_verticalDivides < 1) ? 1 : opt_verticalDivides;
 		const topCap = (opt_topCap === undefined) ? true : opt_topCap;
 		const bottomCap = (opt_bottomCap === undefined) ? true : opt_bottomCap;
-
 		const extra = (topCap ? 2 : 0) + (bottomCap ? 2 : 0);
-
-		const numVertices = (radialSubdivisions + 1) * (verticalSubdivisions + 1 + extra);
+		const numVertices = (radialDivides + 1) * (verticalDivides + 1 + extra);
+		
 		const positions = webglUtils.createAugmentedTypedArray(3, numVertices);
 		const normals   = webglUtils.createAugmentedTypedArray(3, numVertices);
 		const texCoords = webglUtils.createAugmentedTypedArray(2, numVertices);
-		const indices   = webglUtils.createAugmentedTypedArray(3, radialSubdivisions * (verticalSubdivisions + extra) * 2, Uint16Array);
-
-		const vertsAroundEdge = radialSubdivisions + 1;
-
-		// The slant of the cone is constant across its surface
-		const slant = Math.atan2(bottomRadius - topRadius, height);
-		const cosSlant = Math.cos(slant);
-		const sinSlant = Math.sin(slant);
+		const indices   = webglUtils.createAugmentedTypedArray(3, radialDivides * (verticalDivides + extra) * 2, Uint16Array);
 
 		const start = topCap ? -2 : 0;
-		const end = verticalSubdivisions + (bottomCap ? 2 : 0);
-
-		for (let yy = start; yy <= end; ++yy) {
-			let v = yy / verticalSubdivisions;
+	 	const end = (bottomCap ? 2 : 0) + verticalDivides;
+		const slant = Math.atan2(bottomRadius - topRadius, height);
+		const sinSlant = Math.sin(slant);
+		const cosSlant = Math.cos(slant);
+		
+		for (let i = start; i <= end; i++) {
+			let v = i / verticalDivides;
 			let y = height * v;
 			let ringRadius;
-			if (yy < 0) {
+			if (i < 0) {
 				y = 0;
 				v = 1;
 				ringRadius = bottomRadius;
-			} else if (yy > verticalSubdivisions) {
+			} else if (i > verticalDivides) {
 				y = height;
 				v = 1;
 				ringRadius = topRadius;
 			} else {
-				ringRadius = bottomRadius +
-					(topRadius - bottomRadius) * (yy / verticalSubdivisions);
+				ringRadius = bottomRadius + (topRadius - bottomRadius) * (i / verticalDivides);
 			}
-			if (yy === -2 || yy === verticalSubdivisions + 2) {
+			if (i === -2 || i === verticalDivides + 2) {
 				ringRadius = 0;
 				v = 0;
 			}
 			y -= height / 2;
-			for (let ii = 0; ii < vertsAroundEdge; ++ii) {
-				const sin = Math.sin(ii * Math.PI * 2 / radialSubdivisions);
-				const cos = Math.cos(ii * Math.PI * 2 / radialSubdivisions);
-				positions.push(sin * ringRadius, y, cos * ringRadius);
+			for (let j = 0; j < (radialDivides + 1); j++) {
+				const theta = j * Math.PI * 2 / radialDivides;
+				const sinTheta = Math.sin(theta);
+				const cosTheta = Math.cos(theta);
+				positions.push(sinTheta * ringRadius, y, cosTheta * ringRadius);
 				normals.push(
-						(yy < 0 || yy > verticalSubdivisions) ? 0 : (sin * cosSlant),
-						(yy < 0) ? -1 : (yy > verticalSubdivisions ? 1 : sinSlant),
-						(yy < 0 || yy > verticalSubdivisions) ? 0 : (cos * cosSlant));
-				texCoords.push((ii / radialSubdivisions), 1 - v);
+					(i < 0 || i > verticalDivides) ? 0 : (sinTheta * cosSlant),
+					(i < 0) ? -1 : (i > verticalDivides ? 1 : sinSlant),
+					(i < 0 || i > verticalDivides) ? 0 : (cosTheta * cosSlant));
+				texCoords.push((j / radialDivides), 1 - v);
 			}
-		}
-
-		for (let yy = 0; yy < verticalSubdivisions + extra; ++yy) {
-			for (let ii = 0; ii < radialSubdivisions; ++ii) {
-				indices.push(vertsAroundEdge * (yy + 0) + 0 + ii,
-										 vertsAroundEdge * (yy + 0) + 1 + ii,
-										 vertsAroundEdge * (yy + 1) + 1 + ii);
-				indices.push(vertsAroundEdge * (yy + 0) + 0 + ii,
-										 vertsAroundEdge * (yy + 1) + 1 + ii,
-										 vertsAroundEdge * (yy + 1) + 0 + ii);
+		  }
+	
+		for (let i = 0; i < verticalDivides + extra; i++) {
+			for (let j = 0; j < radialDivides; j++) {
+				indices.push(
+					(radialDivides + 1) * (i + 0) + j + 0,
+					(radialDivides + 1) * (i + 0) + j + 1,
+					(radialDivides + 1) * (i + 1) + j + 1
+				);
+				indices.push(
+					(radialDivides + 1) * (i + 0) + j + 0,
+					(radialDivides + 1) * (i + 1) + j + 1,
+					(radialDivides + 1) * (i + 1) + j + 0
+				);
 			}
 		}
 
@@ -741,26 +792,31 @@
 
 
 	return {
-		createCubeBufferInfo: createBufferInfoFunc(createCubeVertices),
-		createCubeBuffers: createBufferFunc(createCubeVertices),
-		createCubeVertices,
-		createCubeWithVertexColorsBufferInfo: createFlattenedFunc(createCubeVertices),
 		createPlaneBufferInfo: createBufferInfoFunc(createPlaneVertices),
 		createPlaneBuffers: createBufferFunc(createPlaneVertices),
 		createPlaneVertices,
 		createPlaneWithVertexColorsBufferInfo: createFlattenedFunc(createPlaneVertices),
-		createXYQuadBufferInfo: createBufferInfoFunc(createXYQuadVertices),
-		createXYQuadBuffers: createBufferFunc(createXYQuadVertices),
-		createXYQuadVertices,
-		createXYQuadWithVertexColorsBufferInfo: createFlattenedFunc(createXYQuadVertices),
+		
+		createCubeBufferInfo: createBufferInfoFunc(createCubeVertices),
+		createCubeBuffers: createBufferFunc(createCubeVertices),
+		createCubeVertices,
+		createCubeWithVertexColorsBufferInfo: createFlattenedFunc(createCubeVertices),
+		
 		createSphereBufferInfo: createBufferInfoFunc(createSphereVertices),
 		createSphereBuffers: createBufferFunc(createSphereVertices),
 		createSphereVertices,
 		createSphereWithVertexColorsBufferInfo: createFlattenedFunc(createSphereVertices),
+		
+		createTruncatedPyramidBufferInfo: createBufferInfoFunc(createTruncatedPyramidVertices),
+		createTruncatedPyramidBuffers: createBufferFunc(createTruncatedPyramidVertices),
+		createTruncatedPyramidVertices,
+		createTruncatedPyramidWithVertexColorsBufferInfo: createFlattenedFunc(createTruncatedPyramidVertices),
+
 		createTruncatedConeBufferInfo: createBufferInfoFunc(createTruncatedConeVertices),
 		createTruncatedConeBuffers: createBufferFunc(createTruncatedConeVertices),
 		createTruncatedConeVertices,
 		createTruncatedConeWithVertexColorsBufferInfo: createFlattenedFunc(createTruncatedConeVertices),
+		
 		deindexVertices,
 		flattenNormals,
 		makeRandomVertexColors,
