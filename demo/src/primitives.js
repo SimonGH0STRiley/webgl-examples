@@ -317,8 +317,7 @@
 	 * @param {number} [opt_widthDivides]	Number of steps across the plane. Default = 1
 	 * @param {number} [opt_depthDivides]	Number of steps down the plane. Default = 1
 	 * @param {Matrix4} [opt_matrix]		A matrix by which to multiply all the vertices.
-	 * @return {Object.<string, TypedArray>} The
-	 *         created plane vertices.
+	 * @return {Object.<string, TypedArray>} The created plane vertices.
 	 * @memberOf module:primitives
 	 */
 	function createPlaneVertices(
@@ -568,17 +567,13 @@
 	 * Creates sphere vertices.
 	 * The created sphere has position, normal and uv streams.
 	 *
-	 * @param {number} radius radius of the sphere.
-	 * @param {number} subdivisionsAxis number of steps around the sphere.
-	 * @param {number} subdivisionsHeight number of vertically on the sphere.
-	 * @param {number} [opt_startLatitude] where to start the
-	 *     top of the sphere. Default = 0.
-	 * @param {number} [opt_endLatitude] Where to end the
-	 *     bottom of the sphere. Default = Math.PI.
-	 * @param {number} [opt_startLongitude] where to start
-	 *     wrapping the sphere. Default = 0.
-	 * @param {number} [opt_endLongitude] where to end
-	 *     wrapping the sphere. Default = 2 * Math.PI.
+	 * @param {number} radius				radius of the sphere.
+	 * @param {number} [opt_warpDivides]	number of warps on the sphere. Default = 60.
+	 * @param {number} [opt_weftDivides]	number of wefts on the sphere. Default = 30.
+	 * @param {number} [opt_startLatitude]	where to start the top of the sphere. Default = 0.
+	 * @param {number} [opt_endLatitude]	where to end the bottom of the sphere. Default = Math.PI.
+	 * @param {number} [opt_startLongitude] where to start wrapping the sphere. Default = 0.
+	 * @param {number} [opt_endLongitude] where to end wrapping the sphere. Default = 2 * Math.PI.
 	 * @return {Object.<string, TypedArray>} The
 	 *         created plane vertices.
 	 * @memberOf module:primitives
@@ -752,27 +747,6 @@
 			indices: indices,
 		};
 	}
-
-	/**
-	 * Expands RLE data
-	 * @param {number[]} rleData data in format of run-length, x, y, z, run-length, x, y, z
-	 * @param {number[]} [padding] value to add each entry with.
-	 * @return {number[]} the expanded rleData
-	 */
-	function expandRLEData(rleData, padding) {
-		padding = padding || [];
-		const data = [];
-		for (let ii = 0; ii < rleData.length; ii += 4) {
-			const runLength = rleData[ii];
-			const element = rleData.slice(ii + 1, ii + 4);
-			element.push.apply(element, padding);
-			for (let jj = 0; jj < runLength; ++jj) {
-				data.push.apply(data, element);
-			}
-		}
-		return data;
-	}
-
 
 
 	function createFlattenedFunc(vertFunc) {
