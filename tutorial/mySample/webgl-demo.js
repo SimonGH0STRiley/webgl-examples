@@ -4,7 +4,7 @@ main();
 
 function main() {
 	const canvas = document.querySelector('#glcanvas');
-	const gl = canvas.getContext('webgl');
+	const gl = canvas.getContext('webgl', {"stencil": true});
 	if (!gl) {
 		alert('Unable to initialize WebGL. Your browser or machine may not support it.');
 		return;
@@ -62,21 +62,66 @@ function main() {
 			gl_FragColor = color;
 		}
 	`;
+	
+	const vsSourcePlane = `
+	attribute vec4 vertexPosition;
+	attribute vec4 vertexColor;
+	uniform mat4 projectionMatrix;
+	uniform mat4 viewMatrix;
+	varying lowp vec4 color;
+
+	void main(void) {
+		gl_Position = vertexPosition;
+		// color = vertexColor; // Revert it after testing
+		color = vec4(1,0,0,1);
+	}
+	`;
+	const fsSourcePlane = `
+		varying lowp vec4 color;
+		void main(void) {
+			gl_FragColor = color;
+		}
+	`;
+
+	const vsSourceFill = `
+		attribute vec4 vertexPosition;
+		attribute vec4 vertexColor;
+		uniform mat4 projectionMatrix;
+		uniform mat4 viewMatrix;
+		varying lowp vec4 color;
+
+		void main(void) {
+			gl_Position = vertexPosition;
+			color = vertexColor; 
+			color = vec4(1,0,0,1); // Revert it after testing
+		}
+	`;
+	const fsSourceFill = `
+		varying lowp vec4 color;
+		void main(void) {
+			gl_FragColor = color;
+		}
+	`;
 	//if (dot (positionForClip, planeNormal) > planeDistance) {
 
 	// Initialize a shader program; this is where all the lighting
 	// for the vertices and so forth is established.
 	const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
-
+	const shaderProgramFill = initShaderProgram(gl, vsSourceFill, fsSourceFill);
 	// Collect all the info needed to use the shader program.
 	// Look up which attributes our shader program is using
 	// for vertexPosition, vertexColor and also
 	// look up uniform locations.
 	const programInfo = {
 		program: shaderProgram,
+		ProgramFill: shaderProgramFill,
 		attribLocations: {
 			vertexPosition: gl.getAttribLocation(shaderProgram, 'vertexPosition'),
 			vertexColor: gl.getAttribLocation(shaderProgram, 'vertexColor'),
+		},
+		attribLocationsFill: {
+			vertexPosition: gl.getAttribLocation(shaderProgramFill, 'vertexPosition'),
+			vertexColor: gl.getAttribLocation(shaderProgramFill, 'vertexColor'),
 		},
 		uniformLocations: {
 			modelMatrix: gl.getUniformLocation(shaderProgram, 'modelMatrix'),
@@ -149,6 +194,11 @@ function initBuffers(gl) {
 		 0.5,    0, -0.5,
 		-0.5,    0, -0.5,
 		-0.5,    0,  0.5,
+		// Fill range (full)
+		-1.0, -1.0,  0.0,
+		-1.0,  1.0,  0.0,
+		 1.0,  1.0,  0.0,
+		 1.0, -1.0,  0.0,
 	];
 
 	// Now pass the list of positions into WebGL to build the
@@ -178,6 +228,10 @@ function initBuffers(gl) {
 	for (let i = 0; i < 4; i++) {
 		verticesColor = verticesColor.concat(colors[2]);
 	}
+	// fill
+	for(let i = 0; i < 4; i++) {
+		verticesColor = verticesColor.concat(colors[1]);
+	}
 
 	  
 	const cubeVerticesColorBuffer = gl.createBuffer();
@@ -194,12 +248,16 @@ function initBuffers(gl) {
 		0,  7,  8,
 		0,  8,  5,
 		// bottom side
-		5, 6, 1, 2, 6,
-		7, 2, 3, 7,
-		8, 3, 4, 8,
-		5, 4, 1, 5,
+		5, 1, 6, 2,
+		6, 2, 7, 3,
+		7, 3, 8, 4,
+		8, 4, 5, 1,
 		// bottom bottom
-		1, 2, 3, 1, 3, 4
+		2, 1, 3, 4,
+		// top
+		6, 7, 5, 8,
+		// plane
+		9, 10, 11, 9, 11, 12
 	];
 
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(cubeVerticesIndices), gl.STATIC_DRAW);
@@ -228,7 +286,13 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
 	// Clear the canvas before we start drawing on it.
 
-	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+ 
+	gl.enable(gl.STENCIL_TEST);
+	gl.stencilFunc(gl.ALWAYS, 1, 0xFF);
+	gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.DECR);
+	gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.INCR);
+	gl.stencilMask(0xFF);
 
 	// Create a perspective matrix, a special matrix that is
 	// used to simulate the distortion of perspective in a camera.
@@ -334,22 +398,65 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 		gl.drawElements(gl.LINE_STRIP, vertexCount, type, offset);
 	}
 
-	{
-		const vertexCount = 17;
+	for (let i = 12; i < 36; i += 4){
+		const vertexCount = 4;
 		const type = gl.UNSIGNED_SHORT;
-		// 12 vertexs 2 bype per gl.UNSIGHED_SHORT
-		const offset = 12 * 2;
+		// 2 bype per gl.UNSIGHED_SHORT
+		const offset = i * 2;
 		gl.drawElements(gl.TRIANGLE_STRIP, vertexCount, type, offset);
 	}
 
+	{
+		const numComponents = 3;
+		const type = gl.FLOAT;
+		const normalize = false;
+		const stride = 0;
+		const offset = 0;
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+		gl.vertexAttribPointer(
+				programInfo.attribLocationsFill.vertexPosition,
+				numComponents,
+				type,
+				normalize,
+				stride,
+				offset);
+		gl.enableVertexAttribArray(
+				programInfo.attribLocationsFill.vertexPosition);
+	}
+
+	// Tell WebGL how to pull out the colors from the color buffer
+	// into the vertexColor attribute.
+	{
+		const numComponents = 4;
+		const type = gl.UNSIGNED_BYTE;
+		const normalize = true;
+		const stride = 0;
+		const offset = 0;
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+		gl.vertexAttribPointer(
+				programInfo.attribLocationsFill.vertexColor,
+				numComponents,
+				type,
+				normalize,
+				stride,
+				offset);
+		gl.enableVertexAttribArray(
+				programInfo.attribLocationsFill.vertexColor);
+	}
+	gl.useProgram(programInfo.ProgramFill);
+		
+	// Draw filling
+	gl.stencilFunc(gl.EQUAL, 1, 0xFF);
+	gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
 	{
 		const vertexCount = 6;
 		const type = gl.UNSIGNED_SHORT;
 		// 12 vertexs 2 bype per gl.UNSIGHED_SHORT
-		const offset = 29 * 2;
+		const offset = 36 * 2;
 		gl.drawElements(gl.TRIANGLE_STRIP, vertexCount, type, offset);
 	}
-
+	gl.disable(gl.STENCIL_TEST);
+	
 	// Update the rotation for the next draw
 
 	rotation += deltaTime;
