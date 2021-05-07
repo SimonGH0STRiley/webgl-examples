@@ -63,10 +63,9 @@ function main() {
 
 	const programInfo = webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
 
-	//const planeBufferInfo		= primitives.createPlaneWithVertexColorsBufferInfo(gl, 20, 20);
+	const clippingBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 20, 20);
 	const cubeBufferInfo		= primitives.createCubeWithVertexColorsBufferInfo(gl, 10, 60, 30)
-	//const bottomConeBufferInfo	= primitives.createTruncatedPyramidWithVertexColorsBufferInfo(gl, 10, 10, 10, 10, 10);
-	const coneBufferInfo	= primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 10, 5, 10, 60, 1, true, true);
+	const coneBufferInfo		= primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 10, 5, 10, 60, 1, true, true);
 
 	function degToRad(d) {
 		return d * Math.PI / 180;
@@ -76,16 +75,16 @@ function main() {
 	let fieldOfViewRadians = degToRad(60);
 	let cameraHeight = 50;
 
-	// let planeUniforms = {
-	// 	u_matrix: m4.identity(),
-	// 	u_colorMult: [1, 0.5, 0.5, 0.5]
-	// };
-	let cubeUniforms = {
+	let clippingUniforms = {
 		u_viewMatrix: undefined,
 		u_viewNormalMatrix: undefined,
 		u_modelViewMatrix: undefined,
-		u_matrix: undefined,
 		u_clippingPlane: undefined,
+		u_matrix: m4.identity(),
+		u_colorMult: [1, 1, 1, 0.5]
+	};
+	let cubeUniforms = {
+		u_matrix: m4.identity(),
 		u_colorMult: [0.5, 1, 0.5, 1]
 	};
 	let coneUniforms = {
@@ -94,15 +93,15 @@ function main() {
 		u_colorMult: [0.5, 0.5, 1, 1]
 	};
 
-	let planeTranslation		= [ 0,  0,  0];
-	let cubeTranslation 		= [ 0,  5,  0];
-	let coneTranslation   = [ 0, -5,  0];
+	let clippingTranslation		= [ 0,  0,  0];
+	let cubeTranslation 		= [ 0,  10,  0];
+	let coneTranslation 		= [ 0, -10,  0];
 
 	let objectsToDraw = [{
-	// 	programInfo: programInfo,
-	// 	bufferInfo: planeBufferInfo,
-	// 	uniforms: planeUniforms
-	// },{
+		programInfo: programInfo,
+		bufferInfo: clippingBufferInfo,
+		uniforms: clippingUniforms
+	}, {
 		programInfo: programInfo,
 		bufferInfo: cubeBufferInfo,
 		uniforms: cubeUniforms
@@ -162,22 +161,21 @@ function main() {
 
 		let viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
 
-		let planeXRotation	= -time;
-		let planeYRotation	=  time;
-		let cubeXRotation	=  0;
-		let cubeYRotation	=  0;
+		let clippingXRotation	=  0;
+		let clippingYRotation	=  0;
+		let cubeXRotation	=  time;
+		let cubeYRotation	=  time;
 		let coneXRotation	=  time;
 		let coneYRotation	= -time;
 
 		// 对每个物体计算矩阵
-		// planeUniforms.u_matrix = computeMatrix(viewProjectionMatrix, planeTranslation, planeXRotation, planeYRotation);
-		
-		cubeUniforms.u_viewMatrix = viewMatrix;
-		cubeUniforms.u_viewNormalMatrix = viewNormalMatrix;
-		cubeUniforms.u_matrix = computeMatrix(viewProjectionMatrix, cubeTranslation, cubeXRotation, cubeYRotation);
-		cubeUniforms.u_modelViewMatrix = computeModelViewMatrix(cubeUniforms.u_matrix, projectionMatrix);
-		cubeUniforms.u_clippingPlane = vec4.fromValues(1/Math.sqrt(3), 1/Math.sqrt(3), 1/Math.sqrt(3), -3);
+		clippingUniforms.u_viewMatrix = viewMatrix;
+		clippingUniforms.u_viewNormalMatrix = viewNormalMatrix;
+		clippingUniforms.u_matrix = computeMatrix(viewProjectionMatrix, clippingTranslation, clippingXRotation, clippingYRotation);
+		clippingUniforms.u_modelViewMatrix = computeModelViewMatrix(clippingUniforms.u_matrix, projectionMatrix);
+		clippingUniforms.u_clippingPlane = vec4.fromValues(1/Math.sqrt(3), 1/Math.sqrt(3), 1/Math.sqrt(3), 0);
 
+		cubeUniforms.u_matrix = computeMatrix(viewProjectionMatrix, cubeTranslation, cubeXRotation, cubeYRotation);		
 		coneUniforms.u_matrix = computeMatrix(viewProjectionMatrix, coneTranslation, coneXRotation, coneYRotation);
 
 		// 在这里画物体
