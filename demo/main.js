@@ -61,9 +61,10 @@ function main() {
 		}
 	`;
 
-	const programInfo = webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
+	const clippedInfo	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
+	const unclippedInfo	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
 
-	const clippingBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 20, 20);
+	const clippingBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 50, 50);
 	const cubeBufferInfo		= primitives.createCubeWithVertexColorsBufferInfo(gl, 10, 60, 30)
 	const coneBufferInfo		= primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 10, 5, 10, 60, 1, true, true);
 
@@ -76,12 +77,12 @@ function main() {
 	let cameraHeight = 50;
 
 	let clippingUniforms = {
-		u_viewMatrix: undefined,
-		u_viewNormalMatrix: undefined,
-		u_modelViewMatrix: undefined,
-		u_clippingPlane: undefined,
+		u_viewMatrix: null,
+		u_viewNormalMatrix: null,
+		u_modelViewMatrix: null,
+		u_clippingPlane: null,
 		u_matrix: m4.identity(),
-		u_colorMult: [1, 1, 1, 0.5]
+		u_colorMult: [1, 1, 1, 1]
 	};
 	let cubeUniforms = {
 		u_matrix: m4.identity(),
@@ -98,15 +99,15 @@ function main() {
 	let coneTranslation 		= [ 0, -10,  0];
 
 	let objectsToDraw = [{
-		programInfo: programInfo,
+		programInfo: clippedInfo,
 		bufferInfo: clippingBufferInfo,
 		uniforms: clippingUniforms
 	}, {
-		programInfo: programInfo,
+		programInfo: clippedInfo,
 		bufferInfo: cubeBufferInfo,
 		uniforms: cubeUniforms
 	}, {
-		programInfo: programInfo,
+		programInfo: unclippedInfo,
 		bufferInfo: coneBufferInfo,
 		uniforms: coneUniforms
 	}];
@@ -134,6 +135,9 @@ function main() {
 	// Draw the scene.
 	function drawScene(time) {
 		time *= 0.0005;
+
+		let lastUsedProgramInfo = null;
+		let lastUsedBufferInfo = null;
 
 		webglUtils.resizeCanvasToDisplaySize(gl.canvas);
 
@@ -182,16 +186,29 @@ function main() {
 		objectsToDraw.forEach(function(object) {
 		let programInfo = object.programInfo;
 		let bufferInfo = object.bufferInfo;
+		let bindBuffers = false;
 
-		gl.useProgram(programInfo.program);
+		if (programInfo !== lastUsedProgramInfo) {
+			lastUsedProgramInfo = programInfo;
+			gl.useProgram(programInfo.program);
+			// 更换程序后要重新绑定缓冲，因为只需要绑定程序要用的缓冲。
+    		// 如果两个程序使用相同的bufferInfo但是第一个只用位置数据，
+    		// 当我们从第一个程序切换到第二个时，有些属性就不存在。
+    		bindBuffers = true;
+		}
 
-		// Setup all the needed attributes.
-		webglUtils.setBuffersAndAttributes(gl, programInfo, bufferInfo);
+		
 
-		// Set the uniforms.
+		// 设置属性
+		if (bindBuffers || bufferInfo !== lastUsedBufferInfo) {
+			lastUsedBufferInfo = bufferInfo;
+			webglUtils.setBuffersAndAttributes(gl, programInfo, bufferInfo);
+		}
+
+		// 设置uniform变量
 		webglUtils.setUniforms(programInfo, object.uniforms);
 
-		// Draw
+		// 绘制3D图形
 		gl.drawArrays(gl.TRIANGLES, 0, bufferInfo.numElements);
 		});
 
