@@ -55,7 +55,7 @@ function main() {
 
 		void main(void) {
 			vec4 planeInEC = planeToEC(plane, viewMatrix, viewNormalMatrix);
-			float distance = calDistance(plane, modelViewPosition);
+			float distance = calDistance(planeInEC, modelViewPosition);
 			if (distance < 0.0) {
 				discard;
 			}
@@ -71,9 +71,9 @@ function main() {
 	varying lowp vec4 color;
 
 	void main(void) {
-		gl_Position = vertexPosition;
-		// color = vertexColor; // Revert it after testing
-		color = vec4(1,0,0,1);
+		gl_Position = projectionMatrix * viewMatrix * vertexPosition;
+		color = vertexColor;
+		color = vec4(0,1,0,0.3); // Revert it after testing
 	}
 	`;
 	const fsSourcePlane = `
@@ -108,6 +108,7 @@ function main() {
 	// for the vertices and so forth is established.
 	const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
 	const shaderProgramFill = initShaderProgram(gl, vsSourceFill, fsSourceFill);
+	const shaderProgramPlane = initShaderProgram(gl, vsSourcePlane, fsSourcePlane);
 	// Collect all the info needed to use the shader program.
 	// Look up which attributes our shader program is using
 	// for vertexPosition, vertexColor and also
@@ -115,6 +116,7 @@ function main() {
 	const programInfo = {
 		program: shaderProgram,
 		ProgramFill: shaderProgramFill,
+		ProgramPlane: shaderProgramPlane,
 		attribLocations: {
 			vertexPosition: gl.getAttribLocation(shaderProgram, 'vertexPosition'),
 			vertexColor: gl.getAttribLocation(shaderProgram, 'vertexColor'),
@@ -123,12 +125,20 @@ function main() {
 			vertexPosition: gl.getAttribLocation(shaderProgramFill, 'vertexPosition'),
 			vertexColor: gl.getAttribLocation(shaderProgramFill, 'vertexColor'),
 		},
+		attribLocationsPlane: {
+			vertexPosition: gl.getAttribLocation(shaderProgramPlane, 'vertexPosition'),
+			vertexColor: gl.getAttribLocation(shaderProgramPlane, 'vertexColor'),
+		},
 		uniformLocations: {
 			modelMatrix: gl.getUniformLocation(shaderProgram, 'modelMatrix'),
 			viewMatrix: gl.getUniformLocation(shaderProgram, 'viewMatrix'),
 			projectionMatrix: gl.getUniformLocation(shaderProgram, 'projectionMatrix'),
 			viewNormalMatrix: gl.getUniformLocation(shaderProgram, 'viewNormalMatrix'),
 			plane: gl.getUniformLocation(shaderProgram, 'plane')
+		},
+		uniformLocationsPlane: {
+			viewMatrix: gl.getUniformLocation(shaderProgramPlane, 'viewMatrix'),
+			projectionMatrix: gl.getUniformLocation(shaderProgramPlane, 'projectionMatrix'),
 		},
 	};
 
@@ -199,6 +209,11 @@ function initBuffers(gl) {
 		-1.0,  1.0,  0.0,
 		 1.0,  1.0,  0.0,
 		 1.0, -1.0,  0.0,
+
+		-3.0*Math.sqrt(3),  0.0,  0.0,
+		 0.0,  3.0*Math.sqrt(3),  0.0,
+		 0.0,  0.0,  3.0*Math.sqrt(3),
+		 
 	];
 
 	// Now pass the list of positions into WebGL to build the
@@ -232,6 +247,10 @@ function initBuffers(gl) {
 	for(let i = 0; i < 4; i++) {
 		verticesColor = verticesColor.concat(colors[1]);
 	}
+	// plane
+	for(let i = 0; i < 4; i++) {
+		verticesColor = verticesColor.concat(colors[3]);
+	}
 
 	  
 	const cubeVerticesColorBuffer = gl.createBuffer();
@@ -257,7 +276,9 @@ function initBuffers(gl) {
 		// top
 		6, 7, 5, 8,
 		// plane
-		9, 10, 11, 9, 11, 12
+		9, 10, 11, 9, 11, 12,
+		13, 14, 15,
+		
 	];
 
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(cubeVerticesIndices), gl.STATIC_DRAW);
@@ -334,7 +355,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 	mat3.normalFromMat4(viewNormalMatrix, viewMatrix);
 	// console.log(viewNormalMatrix)
 
-	const plane = vec4.fromValues(1.0, 0.0, 0.0, 1.0);
+	const plane = vec4.fromValues(1 / Math.sqrt(3), -1 / Math.sqrt(3), -1 / Math.sqrt(3), 0);
 
 
 	// Tell WebGL how to pull out the positions from the position
@@ -444,7 +465,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 				programInfo.attribLocationsFill.vertexColor);
 	}
 	gl.useProgram(programInfo.ProgramFill);
-		
+	//gl.disable(gl.STENCIL_TEST);	
 	// Draw filling
 	gl.stencilFunc(gl.EQUAL, 1, 0xFF);
 	gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
@@ -453,10 +474,57 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 		const type = gl.UNSIGNED_SHORT;
 		// 12 vertexs 2 bype per gl.UNSIGHED_SHORT
 		const offset = 36 * 2;
-		gl.drawElements(gl.TRIANGLE_STRIP, vertexCount, type, offset);
+		gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
 	}
 	gl.disable(gl.STENCIL_TEST);
 	
+	gl.useProgram(programInfo.ProgramPlane);
+	{
+		const numComponents = 3;
+		const type = gl.FLOAT;
+		const normalize = false;
+		const stride = 0;
+		const offset = 0;
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+		gl.vertexAttribPointer(
+				programInfo.attribLocationsPlane.vertexPosition,
+				numComponents,
+				type,
+				normalize,
+				stride,
+				offset);
+		gl.enableVertexAttribArray(
+				programInfo.attribLocationsPlane.vertexPosition);
+	}
+
+	// Tell WebGL how to pull out the colors from the color buffer
+	// into the vertexColor attribute.
+	{
+		const numComponents = 4;
+		const type = gl.UNSIGNED_BYTE;
+		const normalize = true;
+		const stride = 0;
+		const offset = 0;
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+		gl.vertexAttribPointer(
+				programInfo.attribLocationsPlane.vertexColor,
+				numComponents,
+				type,
+				normalize,
+				stride,
+				offset);
+		gl.enableVertexAttribArray(
+				programInfo.attribLocationsPlane.vertexColor);
+	}
+	gl.uniformMatrix4fv(programInfo.uniformLocationsPlane.projectionMatrix, false, projectionMatrix);
+	gl.uniformMatrix4fv(programInfo.uniformLocationsPlane.viewMatrix, false, viewMatrix);
+	{
+		const vertexCount = 3;
+		const type = gl.UNSIGNED_SHORT;
+		// 12 vertexs 2 bype per gl.UNSIGHED_SHORT
+		const offset = 42 * 2;
+		gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
+	}
 	// Update the rotation for the next draw
 
 	rotation += deltaTime;

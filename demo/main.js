@@ -2,7 +2,7 @@
 
 function main() {
 	const canvas = document.querySelector('#glcanvas');
-	const gl = canvas.getContext('webgl');
+	const gl = canvas.getContext('webgl', {stencil: true});
 	if (!gl) {
 		alert('浏览器不支持WebGL 请升级浏览器');
 		return;
@@ -112,22 +112,14 @@ function main() {
 		uniforms: coneUniforms
 	}];
 
-	function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation) {
-		let matrix = m4.translate(viewProjectionMatrix,
+	function computeModelMatrix(translation, xRotation, yRotation) {
+		let matrix = m4.translation(
 			translation[0],
 			translation[1],
 			translation[2]);
 		matrix = m4.xRotate(matrix, xRotation);
 		matrix = m4.yRotate(matrix, yRotation);
 		return matrix
-	}
-
-	function computeModelViewMatrix (matrix, projectionMatrix) {
-		let modelViewMatrix = mat4.create();
-		let inverseProjectionMatrix = mat4.create();
-		mat4.invert(inverseProjectionMatrix, projectionMatrix);
-		mat4.multiply(modelViewMatrix, inverseProjectionMatrix, matrix);
-		return modelViewMatrix;
 	}
 
 	requestAnimationFrame(drawScene);
@@ -148,7 +140,7 @@ function main() {
 		gl.enable(gl.DEPTH_TEST);
 
 		// Clear the canvas AND the depth buffer.
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
 		// Compute the projection matrix
 		let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
@@ -175,12 +167,15 @@ function main() {
 		// 对每个物体计算矩阵
 		clippingUniforms.u_viewMatrix = viewMatrix;
 		clippingUniforms.u_viewNormalMatrix = viewNormalMatrix;
-		clippingUniforms.u_matrix = computeMatrix(viewProjectionMatrix, clippingTranslation, clippingXRotation, clippingYRotation);
-		clippingUniforms.u_modelViewMatrix = computeModelViewMatrix(clippingUniforms.u_matrix, projectionMatrix);
-		clippingUniforms.u_clippingPlane = vec4.fromValues(1/Math.sqrt(3), 1/Math.sqrt(3), 1/Math.sqrt(3), 0);
+		clippingUniforms.u_modelMatrix = computeModelMatrix(clippingTranslation, clippingXRotation, clippingYRotation);
+		clippingUniforms.u_modelViewMatrix = m4.multiply(viewMatrix, clippingUniforms.u_modelMatrix);
+		clippingUniforms.u_matrix = m4.multiply(projectionMatrix, clippingUniforms.u_modelViewMatrix);
+		clippingUniforms.u_clippingPlane = vec4.fromValues(1/Math.sqrt(3), 1/Math.sqrt(3), 1/Math.sqrt(3), -3);
 
-		cubeUniforms.u_matrix = computeMatrix(viewProjectionMatrix, cubeTranslation, cubeXRotation, cubeYRotation);		
-		coneUniforms.u_matrix = computeMatrix(viewProjectionMatrix, coneTranslation, coneXRotation, coneYRotation);
+		cubeUniforms.u_modelMatrix = computeModelMatrix(cubeTranslation, cubeXRotation, cubeYRotation);
+		cubeUniforms.u_matrix = m4.multiply(viewProjectionMatrix, cubeUniforms.u_modelMatrix);
+		coneUniforms.u_modelMatrix = computeModelMatrix(coneTranslation, coneXRotation, coneYRotation);
+		coneUniforms.u_matrix = m4.multiply(viewProjectionMatrix, coneUniforms.u_modelMatrix);
 
 		// 在这里画物体
 		objectsToDraw.forEach(function(object) {
