@@ -66,11 +66,16 @@ function main() {
 
 	const clippingFront	= m4.createVec4FromValues( 1/Math.sqrt(3),  1/Math.sqrt(3),  1/Math.sqrt(3), -5/Math.sqrt(3));
 	const clippingBack	= m4.createVec4FromValues(-1/Math.sqrt(3), -1/Math.sqrt(3), -1/Math.sqrt(3),  5/Math.sqrt(3));
+	// let planeTransformMatrix = m4.identity();
+	// planeTransformMatrix = m4.xRotate(planeTransformMatrix, -Math.PI / 4);
+	// planeTransformMatrix = m4.yRotate(planeTransformMatrix, -Math.PI / 4);
+	// planeTransformMatrix = m4.zRotate(planeTransformMatrix, -Math.PI / 2);
 
 	const frontObjBufferInfo	= primitives.createCubeWithVertexColorsBufferInfo(gl, 10, 60, 30);
 	const backObjBufferInfo		= primitives.createCubeWithVertexColorsBufferInfo(gl, 10, 60, 30);
 
 	const planeBufferInfo = primitives.createPlaneWithVertexColorsBufferInfo(gl, 20, 20, 1, 1);
+	// const planeBufferInfo = primitives.createPlaneWithVertexColorsBufferInfo(gl, 20, 20, 1, 1, planeTransformMatrix);
 
 	
 	function degToRad(d) {
@@ -125,21 +130,6 @@ function main() {
 		uniforms: planeUniforms
 	}];
 
-	function computeClipping(plane, translation, rotation) {
-		let transformedPlane = m4.cloneVec4(plane);
-		let transformMatrix = m4.translation(
-			translation[0],
-			translation[1],
-			translation[2]);
-		transformMatrix = m4.xRotate(transformMatrix, rotation[0]);
-		transformMatrix = m4.yRotate(transformMatrix, rotation[1]);
-		transformMatrix = m4.zRotate(transformMatrix, rotation[2]);
-		transformMatrix = m4.transpose(transformMatrix);
-		transformMatrix = m4.inverse(transformMatrix);
-		transformedPlane = m4.transformVector(transformMatrix, transformedPlane);
-		return transformedPlane;
-	}
-
 	function computeModelMatrix(translation, rotation) {
 		let modelMatrix = m4.translation(
 			translation[0],
@@ -160,6 +150,21 @@ function main() {
 		modelViewProjectionMatrix = m4.yRotate(modelViewProjectionMatrix, rotation[1]);
 		modelViewProjectionMatrix = m4.zRotate(modelViewProjectionMatrix, rotation[2]);
 		return modelViewProjectionMatrix;
+	}
+
+	function computeClipping(plane, translation, rotation) {
+		let transformedPlane = m4.cloneVec4(plane);
+		let transformMatrix = m4.translation(
+			translation[0],
+			translation[1],
+			translation[2]);
+		transformMatrix = m4.xRotate(transformMatrix, rotation[0]);
+		transformMatrix = m4.yRotate(transformMatrix, rotation[1]);
+		transformMatrix = m4.zRotate(transformMatrix, rotation[2]);
+		transformMatrix = m4.transpose(transformMatrix);
+		transformMatrix = m4.inverse(transformMatrix);
+		transformedPlane = m4.transformVector(transformMatrix, transformedPlane);
+		return transformedPlane;
 	}
 
 	requestAnimationFrame(drawScene);
