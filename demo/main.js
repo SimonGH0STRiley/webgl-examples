@@ -14,14 +14,14 @@ function main() {
 		attribute vec4 a_color;
 		
 		uniform mat4 u_modelViewMatrix;
-		uniform mat4 u_matrix;
+		uniform mat4 u_modelViewProjectionMatrix;
 		
 		varying lowp vec4 v_color;
 		varying vec3 v_modelViewPosition;
 		
 		void main() {
 			v_modelViewPosition = (u_modelViewMatrix * a_position).xyz;
-			gl_Position = u_matrix * a_position;
+			gl_Position = u_modelViewProjectionMatrix * a_position;
 			v_color = a_color;
 		}
 	`;
@@ -61,13 +61,18 @@ function main() {
 		}
 	`;
 
-	const clippedInfo	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
-	const unclippedInfo	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
+	const clippedProgram	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
+	const unclippedProgram	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
 
-	const clippingBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 50, 50);
-	const cubeBufferInfo		= primitives.createCubeWithVertexColorsBufferInfo(gl, 10, 60, 30)
-	const coneBufferInfo		= primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 10, 5, 10, 60, 1, true, true);
+	const clippingFront	= m4.createVec4FromValues( 1/Math.sqrt(3),  1/Math.sqrt(3),  1/Math.sqrt(3), -5/Math.sqrt(3));
+	const clippingBack	= m4.createVec4FromValues(-1/Math.sqrt(3), -1/Math.sqrt(3), -1/Math.sqrt(3),  5/Math.sqrt(3));
 
+	const frontObjBufferInfo	= primitives.createCubeWithVertexColorsBufferInfo(gl, 10, 60, 30);
+	const backObjBufferInfo		= primitives.createCubeWithVertexColorsBufferInfo(gl, 10, 60, 30);
+
+	const planeBufferInfo = primitives.createPlaneWithVertexColorsBufferInfo(gl, 20, 20, 1, 1);
+
+	
 	function degToRad(d) {
 		return d * Math.PI / 180;
 	}
@@ -76,50 +81,85 @@ function main() {
 	let fieldOfViewRadians = degToRad(60);
 	let cameraHeight = 50;
 
-	let clippingUniforms = {
+	let frontObjUniforms = {
+		u_modelMatrix: null,
 		u_viewMatrix: null,
-		u_viewNormalMatrix: null,
 		u_modelViewMatrix: null,
+		u_modelViewProjectionMatrix: null,
+		u_viewNormalMatrix: null,
 		u_clippingPlane: null,
-		u_matrix: m4.identity(),
-		u_colorMult: [1, 1, 1, 1]
-	};
-	let cubeUniforms = {
-		u_matrix: m4.identity(),
 		u_colorMult: [0.5, 1, 0.5, 1]
 	};
-	let coneUniforms = {
-		// u_modelViewMatrix: m4.identity(),
-		u_matrix: m4.identity(),
+	let backObjUniforms = {
+		u_modelMatrix: null,
+		u_viewMatrix: null,
+		u_modelViewMatrix: null,
+		u_modelViewProjectionMatrix: null,
+		u_viewNormalMatrix: null,
+		u_clippingPlane: null,
 		u_colorMult: [0.5, 0.5, 1, 1]
 	};
 
-	let clippingTranslation		= [ 0,  0,  0];
-	let cubeTranslation 		= [ 0,  10,  0];
-	let coneTranslation 		= [ 0, -10,  0];
+
+	let planeUniforms = {
+		u_modelViewProjectionMatrix: m4.identity(),
+		u_colorMult: [1, 0.5, 0.5, 1]
+	}
+
+	let frontObjTranslation 	= [  10,  10,   0];
+	let backObjTranslation 		= [ -10, -10,   0];
+	let planeTranslation		= [  10,  10,   0];
+
 
 	let objectsToDraw = [{
-		programInfo: clippedInfo,
-		bufferInfo: clippingBufferInfo,
-		uniforms: clippingUniforms
+		programInfo: clippedProgram,
+		bufferInfo: frontObjBufferInfo,
+		uniforms: frontObjUniforms
 	}, {
-		programInfo: clippedInfo,
-		bufferInfo: cubeBufferInfo,
-		uniforms: cubeUniforms
+		programInfo: clippedProgram,
+		bufferInfo: backObjBufferInfo,
+		uniforms: backObjUniforms
 	}, {
-		programInfo: unclippedInfo,
-		bufferInfo: coneBufferInfo,
-		uniforms: coneUniforms
+		programInfo: unclippedProgram,
+		bufferInfo: planeBufferInfo,
+		uniforms: planeUniforms
 	}];
 
-	function computeModelMatrix(translation, xRotation, yRotation) {
-		let matrix = m4.translation(
+	function computeClipping(plane, translation, rotation) {
+		let transformedPlane = m4.cloneVec4(plane);
+		let transformMatrix = m4.translation(
 			translation[0],
 			translation[1],
 			translation[2]);
-		matrix = m4.xRotate(matrix, xRotation);
-		matrix = m4.yRotate(matrix, yRotation);
-		return matrix
+		transformMatrix = m4.xRotate(transformMatrix, rotation[0]);
+		transformMatrix = m4.yRotate(transformMatrix, rotation[1]);
+		transformMatrix = m4.zRotate(transformMatrix, rotation[2]);
+		transformMatrix = m4.transpose(transformMatrix);
+		transformMatrix = m4.inverse(transformMatrix);
+		transformedPlane = m4.transformVector(transformMatrix, transformedPlane);
+		return transformedPlane;
+	}
+
+	function computeModelMatrix(translation, rotation) {
+		let modelMatrix = m4.translation(
+			translation[0],
+			translation[1],
+			translation[2]);
+		modelMatrix = m4.xRotate(modelMatrix, rotation[0]);
+		modelMatrix = m4.yRotate(modelMatrix, rotation[1]);
+		modelMatrix = m4.zRotate(modelMatrix, rotation[2]);
+		return modelMatrix;
+	}
+
+	function computeModelViewProjectionMatrix(viewProjectionMatrix, translation, rotation) {
+		let modelViewProjectionMatrix = m4.translate(viewProjectionMatrix,
+			translation[0],
+			translation[1],
+			translation[2]);
+		modelViewProjectionMatrix = m4.xRotate(modelViewProjectionMatrix, rotation[0]);
+		modelViewProjectionMatrix = m4.yRotate(modelViewProjectionMatrix, rotation[1]);
+		modelViewProjectionMatrix = m4.zRotate(modelViewProjectionMatrix, rotation[2]);
+		return modelViewProjectionMatrix;
 	}
 
 	requestAnimationFrame(drawScene);
@@ -152,30 +192,32 @@ function main() {
 		let up = [0, 1, 0];
 		let cameraMatrix = m4.lookAt(cameraPosition, target, up);
 		let viewMatrix = m4.inverse(cameraMatrix);
-		let viewNormalMatrix = mat3.create();
-		mat3.normalFromMat4(viewNormalMatrix, viewMatrix);
-
+		let viewNormalMatrix = m4.normalFromMat4(viewMatrix);
 		let viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
 
-		let clippingXRotation	=  0;
-		let clippingYRotation	=  0;
-		let cubeXRotation	=  time;
-		let cubeYRotation	=  time;
-		let coneXRotation	=  time;
-		let coneYRotation	= -time;
+		let frontObjRotation	=  [ time,  time,  0];
+		let backObjRotation		=  [ time, -time,  0];
+		let planeRotation		=  [ time,  time,  0];
 
 		// 对每个物体计算矩阵
-		clippingUniforms.u_viewMatrix = viewMatrix;
-		clippingUniforms.u_viewNormalMatrix = viewNormalMatrix;
-		clippingUniforms.u_modelMatrix = computeModelMatrix(clippingTranslation, clippingXRotation, clippingYRotation);
-		clippingUniforms.u_modelViewMatrix = m4.multiply(viewMatrix, clippingUniforms.u_modelMatrix);
-		clippingUniforms.u_matrix = m4.multiply(projectionMatrix, clippingUniforms.u_modelViewMatrix);
-		clippingUniforms.u_clippingPlane = vec4.fromValues(1/Math.sqrt(3), 1/Math.sqrt(3), 1/Math.sqrt(3), -3);
+		// 对于需要clipping的物体
+		frontObjUniforms.u_modelMatrix = computeModelMatrix(frontObjTranslation, frontObjRotation);
+		frontObjUniforms.u_viewMatrix = viewMatrix;
+		frontObjUniforms.u_modelViewMatrix = m4.multiply(viewMatrix, frontObjUniforms.u_modelMatrix);
+		frontObjUniforms.u_modelViewProjectionMatrix = m4.multiply(projectionMatrix, frontObjUniforms.u_modelViewMatrix);
+		frontObjUniforms.u_viewNormalMatrix = viewNormalMatrix;
+		frontObjUniforms.u_clippingPlane = computeClipping(clippingFront, frontObjTranslation, frontObjRotation);
 
-		cubeUniforms.u_modelMatrix = computeModelMatrix(cubeTranslation, cubeXRotation, cubeYRotation);
-		cubeUniforms.u_matrix = m4.multiply(viewProjectionMatrix, cubeUniforms.u_modelMatrix);
-		coneUniforms.u_modelMatrix = computeModelMatrix(coneTranslation, coneXRotation, coneYRotation);
-		coneUniforms.u_matrix = m4.multiply(viewProjectionMatrix, coneUniforms.u_modelMatrix);
+
+		backObjUniforms.u_modelMatrix = computeModelMatrix(backObjTranslation, backObjRotation);
+		backObjUniforms.u_viewMatrix = viewMatrix;
+		backObjUniforms.u_modelViewMatrix = m4.multiply(viewMatrix, backObjUniforms.u_modelMatrix);
+		backObjUniforms.u_modelViewProjectionMatrix = m4.multiply(projectionMatrix, backObjUniforms.u_modelViewMatrix);
+		backObjUniforms.u_viewNormalMatrix = viewNormalMatrix;
+		backObjUniforms.u_clippingPlane = computeClipping(clippingBack, backObjTranslation, backObjRotation);
+
+		// 对于不需要clipping的物体
+		planeUniforms.u_modelViewProjectionMatrix = computeModelViewProjectionMatrix(viewProjectionMatrix, planeTranslation, planeRotation);
 
 		// 在这里画物体
 		objectsToDraw.forEach(function(object) {
@@ -191,8 +233,6 @@ function main() {
     		// 当我们从第一个程序切换到第二个时，有些属性就不存在。
     		bindBuffers = true;
 		}
-
-		
 
 		// 设置属性
 		if (bindBuffers || bufferInfo !== lastUsedBufferInfo) {
