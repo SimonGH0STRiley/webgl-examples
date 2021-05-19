@@ -7,6 +7,7 @@
 		<script src="./src/m4.js"></script>
 		<script src="./src/webgl-utils.js"></script>
 		<script src="./src/primitives.js"></script>
+		<script src="./src/ui.js"></script>		
 		<script src="main.js" defer></script>
 	</head>
 
@@ -14,8 +15,23 @@
 		<canvas id="glcanvas"></canvas>
 		<div id="uiContainer">
 			<div id="ui">
-				<div id="x"></div>
-				<div id="y"></div>
+				<p>Please select object here below:</p>
+				<div id="objList">
+				  <input type="radio" name="objType" id="cube" value="cube" checked>
+				  <label for="cube">Cube</label>
+				  <input type="radio" name="objType" id="sphere" value="sphere">
+				  <label for="sphere">Sphere</label>
+				  <input type="radio" name="objType" id="pyramid" value="pyramid">
+				  <label for="pyramid">Pyramid</label>
+				  <input type="radio" name="objType" id="cone" value="cone">
+				  <label for="cone">Cone</label>
+				  <input type="radio" name="objType" id="slinder" value="slinder">
+				  <label for="slinder">Slinder</label>
+				</div>
+				<p>Adjust Slider Here:</p>
+				<div id="translate"></div>
+				<div id="rotate-x"></div>
+				<div id="rotate-y"></div>
 			</div>
 		</div>
 	</body>

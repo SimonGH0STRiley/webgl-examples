@@ -153,7 +153,7 @@
 	}
 
 	/**
-	 * Makes a vec4 initialized with the given vec4.
+	 * Clone a vec4 initialized with the given vec4.
 	 * @param {Vector4} src the vector to clone
 	 * @param {Vector4} [dst] optional vector to store result
 	 * @return {Vector4} dst or a new vector if none provided
@@ -166,6 +166,24 @@
 		dst[1] = src[1];
 		dst[2] = src[2];
 		dst[3] = src[3];
+
+		return dst;
+	}
+
+	/**
+	 * Reverse a vec4 initialized with the given vec4.
+	 * @param {Vector4} src the vector to reverse
+	 * @param {Vector4} [dst] optional vector to store result
+	 * @return {Vector4} dst or a new vector if none provided
+	 * @memberOf module:webgl-3d-math
+	 */
+	function reverseVec4 (src, dst) {
+		dst = dst || new MatType(4);
+
+		dst[0] = -src[0];
+		dst[1] = -src[1];
+		dst[2] = -src[2];
+		dst[3] = -src[3];
 
 		return dst;
 	}
@@ -190,7 +208,7 @@
 
 		return dst;
 	}
-	
+
 	/**
 	 * Takes two 4-by-4 matrices, a and b, and computes the product in the order
 	 * that pre-composes b with a.	In other words, the matrix returned will
@@ -1604,6 +1622,7 @@
 		createVec3FromValues: createVec3FromValues,
 		createVec4: createVec4,
 		cloneVec4: cloneVec4,
+		reverseVec4: reverseVec4,
 		createVec4FromValues: createVec4FromValues,
 		copy: copy,
 		lookAt: lookAt,

@@ -8,6 +8,27 @@ function main() {
 		return;
 	}
 
+	ui.setupSlider("#translate",	{
+		slide:	updateClippingTransformMatrix('translateY'),
+		value:	0,
+		min:	-5,
+		max:	5,
+		step:	0.1,
+		precision: 1
+	});
+	ui.setupSlider("#rotate-x", {
+		slide: updateClippingTransformMatrix('rotateX'),
+		value: 0,
+		min: 0,
+		max: 90
+	}); 
+	ui.setupSlider("#rotate-y", {
+		slide: updateClippingTransformMatrix('rotateY'),
+		value: 0,
+		min: 0,
+		max: 90
+	}); 
+
 	// Vertex shader program 顶点着色器
 	const vsSource = `
 		attribute vec4 a_position;
@@ -61,23 +82,91 @@ function main() {
 		}
 	`;
 
-	const clippedProgram	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
-	const unclippedProgram	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
+	const objectProgram	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
+	const planeProgram	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
 
-	const clippingFront	= m4.createVec4FromValues( 1/Math.sqrt(3),  1/Math.sqrt(3),  1/Math.sqrt(3), -5/Math.sqrt(3));
-	const clippingBack	= m4.createVec4FromValues(-1/Math.sqrt(3), -1/Math.sqrt(3), -1/Math.sqrt(3),  5/Math.sqrt(3));
-	// let planeTransformMatrix = m4.identity();
-	// planeTransformMatrix = m4.xRotate(planeTransformMatrix, -Math.PI / 4);
-	// planeTransformMatrix = m4.yRotate(planeTransformMatrix, -Math.PI / 4);
-	// planeTransformMatrix = m4.zRotate(planeTransformMatrix, -Math.PI / 2);
+	// let selectedObject		= null;
+	// let frontObjBufferInfo	= primitives.createCubeWithVertexColorsBufferInfo(gl, 10);
+	// let backObjBufferInfo	= frontObjBufferInfo;
+	// document.getElementById("objList").addEventListener("click", selectObject);
+	// function selectObject() {
+	// 	const objectTypeList = document.getElementsByName("objType");
+	// 	objectTypeList.forEach(currObject => {
+	// 		if (currObject.checked) {
+	// 			// selectedObject = currObject.value;
+	// 			// console.log(selectedObject);
+	// 			console.log(currObject.value);
+	// 			frontObjBufferInfo	= primitives.createSphereWithVertexColorsBufferInfo(gl, 5, 60, 30);
+	// 			backObjBufferInfo	= frontObjBufferInfo;
+	// 		}
+	// 	})
+	// }
 
-	const frontObjBufferInfo	= primitives.createCubeWithVertexColorsBufferInfo(gl, 10, 60, 30);
-	const backObjBufferInfo		= primitives.createCubeWithVertexColorsBufferInfo(gl, 10, 60, 30);
+	// if (!selectedObject || selectedObject === 'cube') {
+	// 	frontObjBufferInfo	= primitives.createCubeWithVertexColorsBufferInfo(gl, 10);
+	// 	backObjBufferInfo = frontObjBufferInfo;
+	// } else if (selectedObject === 'sphere') {
+	// 	frontObjBufferInfo	= primitives.createSphereWithVertexColorsBufferInfo(gl, 5);
+	// } else if (selectedObject === 'pyramid') {
+	// 	frontObjBufferInfo	= primitives.createTruncatedPyramidWithVertexColorsBufferInfo(gl, 0, 0, 10, 10, 10);
+	// } else if (selectedObject === 'cone') {
+	// 	frontObjBufferInfo	= primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 0, 5, 10);
+	// } else if (selectedObject === 'slinder') {
+	// 	frontObjBufferInfo	= primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 5, 5, 10);
+	// }
 
-	const planeBufferInfo = primitives.createPlaneWithVertexColorsBufferInfo(gl, 20, 20, 1, 1);
-	// const planeBufferInfo = primitives.createPlaneWithVertexColorsBufferInfo(gl, 20, 20, 1, 1, planeTransformMatrix);
 
+	const frontObjBufferInfo	= primitives.createCubeWithVertexColorsBufferInfo(gl, 10);
+	const backObjBufferInfo	= frontObjBufferInfo;
+	frontObjBufferInfo.useStencil		= backObjBufferInfo.useStencil		= true;
+	frontObjBufferInfo.stencilClear		= backObjBufferInfo.stencilClear	= true;
+	frontObjBufferInfo.stencilWrite		= backObjBufferInfo.stencilWrite	= true;
+	frontObjBufferInfo.stencilFrontOp	= backObjBufferInfo.stencilFrontOp	= [gl.KEEP, gl.KEEP, gl.DECR];
+	frontObjBufferInfo.stencilBackOp	= backObjBufferInfo.stencilBackOp	= [gl.KEEP, gl.KEEP, gl.INCR];
+	frontObjBufferInfo.stencilFunc		= backObjBufferInfo.stencilFunc		= [gl.ALWAYS, 1, 0xFF];
 	
+	let clippingTransformMatrix = m4.identity();
+	let recentTransform = [0, 0, 0, 0];
+
+	let clippingFrontBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 30, 30, 1, 1, clippingTransformMatrix);
+	let clippingBackBufferInfo	= clippingFrontBufferInfo;
+	clippingFrontBufferInfo.useStencil	= clippingBackBufferInfo.useStencil	= true;
+	clippingFrontBufferInfo.stencilOp	= clippingBackBufferInfo.stencilOp	= [gl.KEEP, gl.KEEP, gl.KEEP];
+	clippingFrontBufferInfo.stencilFunc	= clippingBackBufferInfo.stencilFunc= [gl.EQUAL, 1, 0xFF];
+	// clippingFrontBufferInfo.useStencil	= true;
+	// clippingFrontBufferInfo.stencilOp	= [gl.KEEP, gl.KEEP, gl.KEEP];
+	// clippingFrontBufferInfo.stencilFunc	= [gl.EQUAL, 1, 0xFF];
+	// clippingBackBufferInfo.useStencil	= true;
+	// clippingBackBufferInfo.stencilOp	= [gl.KEEP, gl.KEEP, gl.KEEP];
+	// clippingBackBufferInfo.stencilFunc	= [gl.EQUAL, 1, 0xFF];
+
+
+	// clippingTransformMatrix = m4.translate(clippingTransformMatrix, 5/3, 5/3, 5/3);
+	// clippingTransformMatrix = m4.zRotate(clippingTransformMatrix, -Math.PI / 4);
+	// clippingTransformMatrix = m4.xRotate(clippingTransformMatrix, Math.asin(1 / Math.sqrt(3)));
+	let clippingFront	= m4.transformVector(m4.inverse(m4.transpose(clippingTransformMatrix)), m4.createVec4FromValues(0, 1, 0, 0));
+	let clippingBack	= m4.reverseVec4(clippingFront);
+
+	function updateClippingTransformMatrix(method) {
+		return function (event, ui) {
+			if (method === 'translateY') {
+				clippingTransformMatrix = m4.translate(clippingTransformMatrix, 0, ui.value - recentTransform[0], 0);
+				recentTransform[0] = ui.value;
+			} else if (method === 'rotateX') {
+				clippingTransformMatrix = m4.xRotate(clippingTransformMatrix, degToRad(ui.value - recentTransform[1]));
+				recentTransform[1] = ui.value;
+			} else if (method === 'rotateY') {
+				clippingTransformMatrix = m4.yRotate(clippingTransformMatrix, degToRad(ui.value - recentTransform[2]));
+				recentTransform[2] = ui.value;
+			}
+			clippingFront	= m4.transformVector(m4.inverse(m4.transpose(clippingTransformMatrix)), m4.createVec4FromValues(0, 1, 0, 0));
+			clippingBack	= m4.reverseVec4(clippingFront);
+			clippingFrontBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 20, 20, 1, 1, clippingTransformMatrix);
+			clippingBackBufferInfo	= clippingFrontBufferInfo;
+			console.log(clippingTransformMatrix);
+		}
+	}
+
 	function degToRad(d) {
 		return d * Math.PI / 180;
 	}
@@ -104,31 +193,36 @@ function main() {
 		u_clippingPlane: null,
 		u_colorMult: [0.5, 0.5, 1, 1]
 	};
+	let frontPlaneUniforms = {
+		u_modelViewProjectionMatrix: null,
+		u_colorMult: [0, 0, 1, 1]
+	};
+	let backPlaneUniforms = {
+		u_modelViewProjectionMatrix: null,
+		u_colorMult: [1, 0, 0, 1]
+	};
 
-
-	let planeUniforms = {
-		u_modelViewProjectionMatrix: m4.identity(),
-		u_colorMult: [1, 0.5, 0.5, 1]
-	}
-
-	let frontObjTranslation 	= [  10,  10,   0];
-	let backObjTranslation 		= [ -10, -10,   0];
-	let planeTranslation		= [  10,  10,   0];
-
+	let frontObjTranslation 	= [  0,  7,  0];
+	let backObjTranslation 		= [  0, -7,  0];
 
 	let objectsToDraw = [{
-		programInfo: clippedProgram,
+		programInfo: objectProgram,
 		bufferInfo: frontObjBufferInfo,
 		uniforms: frontObjUniforms
 	}, {
-		programInfo: clippedProgram,
+		programInfo: planeProgram,
+		bufferInfo: clippingFrontBufferInfo,
+		uniforms: frontPlaneUniforms
+	}, {
+		programInfo: objectProgram,
 		bufferInfo: backObjBufferInfo,
 		uniforms: backObjUniforms
 	}, {
-		programInfo: unclippedProgram,
-		bufferInfo: planeBufferInfo,
-		uniforms: planeUniforms
-	}];
+		programInfo: planeProgram,
+		bufferInfo: clippingBackBufferInfo,
+		uniforms: backPlaneUniforms
+	}
+	];
 
 	function computeModelMatrix(translation, rotation) {
 		let modelMatrix = m4.translation(
@@ -141,7 +235,7 @@ function main() {
 		return modelMatrix;
 	}
 
-	function computeModelViewProjectionMatrix(viewProjectionMatrix, translation, rotation) {
+	function computeModelViewProjectionMatrix(viewProjectionMatrix, translation, rotation, transformMatrix) {
 		let modelViewProjectionMatrix = m4.translate(viewProjectionMatrix,
 			translation[0],
 			translation[1],
@@ -149,15 +243,12 @@ function main() {
 		modelViewProjectionMatrix = m4.xRotate(modelViewProjectionMatrix, rotation[0]);
 		modelViewProjectionMatrix = m4.yRotate(modelViewProjectionMatrix, rotation[1]);
 		modelViewProjectionMatrix = m4.zRotate(modelViewProjectionMatrix, rotation[2]);
-		return modelViewProjectionMatrix;
+		return m4.multiply(modelViewProjectionMatrix, transformMatrix);
 	}
 
 	function computeClipping(plane, translation, rotation) {
 		let transformedPlane = m4.cloneVec4(plane);
-		let transformMatrix = m4.translation(
-			translation[0],
-			translation[1],
-			translation[2]);
+		let transformMatrix = m4.translation(translation[0], translation[1], translation[2]);
 		transformMatrix = m4.xRotate(transformMatrix, rotation[0]);
 		transformMatrix = m4.yRotate(transformMatrix, rotation[1]);
 		transformMatrix = m4.zRotate(transformMatrix, rotation[2]);
@@ -192,7 +283,7 @@ function main() {
 		let projectionMatrix = m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
 
 		// Compute the camera's matrix using look at.
-		let cameraPosition = [0, 0, 100];
+		let cameraPosition = [0, 20, 50];
 		let target = [0, 0, 0];
 		let up = [0, 1, 0];
 		let cameraMatrix = m4.lookAt(cameraPosition, target, up);
@@ -200,9 +291,8 @@ function main() {
 		let viewNormalMatrix = m4.normalFromMat4(viewMatrix);
 		let viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
 
-		let frontObjRotation	=  [ time,  time,  0];
-		let backObjRotation		=  [ time, -time,  0];
-		let planeRotation		=  [ time,  time,  0];
+		let frontObjRotation	=  [ 0,  time,  0];
+		let backObjRotation		=  [ 0,  time,  0];
 
 		// 对每个物体计算矩阵
 		// 对于需要clipping的物体
@@ -213,7 +303,6 @@ function main() {
 		frontObjUniforms.u_viewNormalMatrix = viewNormalMatrix;
 		frontObjUniforms.u_clippingPlane = computeClipping(clippingFront, frontObjTranslation, frontObjRotation);
 
-
 		backObjUniforms.u_modelMatrix = computeModelMatrix(backObjTranslation, backObjRotation);
 		backObjUniforms.u_viewMatrix = viewMatrix;
 		backObjUniforms.u_modelViewMatrix = m4.multiply(viewMatrix, backObjUniforms.u_modelMatrix);
@@ -222,7 +311,10 @@ function main() {
 		backObjUniforms.u_clippingPlane = computeClipping(clippingBack, backObjTranslation, backObjRotation);
 
 		// 对于不需要clipping的物体
-		planeUniforms.u_modelViewProjectionMatrix = computeModelViewProjectionMatrix(viewProjectionMatrix, planeTranslation, planeRotation);
+		frontPlaneUniforms.u_modelViewProjectionMatrix	= 
+			computeModelViewProjectionMatrix(viewProjectionMatrix, frontObjTranslation, frontObjRotation, clippingTransformMatrix);
+		backPlaneUniforms.u_modelViewProjectionMatrix	= 
+			computeModelViewProjectionMatrix(viewProjectionMatrix, backObjTranslation, backObjRotation, clippingTransformMatrix);
 
 		// 在这里画物体
 		objectsToDraw.forEach(function(object) {
@@ -248,6 +340,33 @@ function main() {
 		// 设置uniform变量
 		webglUtils.setUniforms(programInfo, object.uniforms);
 
+		// Stencil 相关
+		if (bufferInfo.useStencil) {
+			gl.enable(gl.STENCIL_TEST);
+		} else {
+			gl.disable(gl.STENCIL_TEST);
+		}
+		if (bufferInfo.stencilClear) {
+			gl.stencilMask(0xFF);
+			gl.clear(gl.STENCIL_BUFFER_BIT);
+		}
+		if (bufferInfo.stencilWrite) {
+			gl.stencilMask(0xFF);
+		} else {
+			gl.stencilMask(0);
+		}
+		if (bufferInfo.stencilOp) {
+			gl.stencilOp(bufferInfo.stencilOp[0], bufferInfo.stencilOp[1], bufferInfo.stencilOp[2]);
+		}
+		if (bufferInfo.stencilFrontOp) {
+			gl.stencilOpSeparate(gl.FRONT, bufferInfo.stencilFrontOp[0], bufferInfo.stencilFrontOp[1], bufferInfo.stencilFrontOp[2]);
+		}
+		if (bufferInfo.stencilBackOp) {
+			gl.stencilOpSeparate(gl.BACK, bufferInfo.stencilBackOp[0], bufferInfo.stencilBackOp[1], bufferInfo.stencilBackOp[2]);
+		}
+		if (bufferInfo.stencilFunc) {
+			gl.stencilFunc(bufferInfo.stencilFunc[0], bufferInfo.stencilFunc[1], bufferInfo.stencilFunc[2])
+		}
 		// 绘制3D图形
 		gl.drawArrays(gl.TRIANGLES, 0, bufferInfo.numElements);
 		});
