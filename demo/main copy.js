@@ -85,8 +85,6 @@ function main() {
 	// objectBufferInfo.stencilFunc	= [gl.ALWAYS, 1, 0xFF];
 	
 	let planeTransformMatrix = m4.identity();
-	let recentTranslate = [0, 0, 0, 0];
-	let recentRotate = [0, 0];
 
 	let planeBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 30, 30, 1, 1, planeTransformMatrix);
 	// planeBufferInfo.useStencil	= true;
@@ -94,23 +92,35 @@ function main() {
 	// planeBufferInfo.stencilFunc	= [gl.EQUAL, 1, 0xFF];
 
 	function updateClippingTransformMatrix(method) {
-		return function (event, ui) {
-			if (method === 'translateX') {
-				planeTransformMatrix = m4.translate(planeTransformMatrix, ui.value - recentTranslate[0], 0, 0);
-				recentTranslate[0] = ui.value;
-			} else if (method === 'translateY') {
-				planeTransformMatrix = m4.translate(planeTransformMatrix, 0, ui.value - recentTranslate[1], 0);
-				recentTranslate[1] = ui.value;
-			} else if (method === 'translateZ') {
-				planeTransformMatrix = m4.translate(planeTransformMatrix, 0, 0, ui.value - recentTranslate[2]);
-				recentTranslate[2] = ui.value;
-			} else if (method === 'rotateX') {
-				planeTransformMatrix = m4.xRotate(planeTransformMatrix, degToRad(ui.value - recentRotate[0]));
-				recentRotate[0] = ui.value;
-			} else if (method === 'rotateZ') {
-				planeTransformMatrix = m4.zRotate(planeTransformMatrix, degToRad(ui.value - recentRotate[1]));
-				recentRotate[1] = ui.value;
-			}
+		return function () {
+			const translateX = document.getElementById("translate-x").querySelector(".widget-value").textContent;
+			const translateY = document.getElementById("translate-y").querySelector(".widget-value").textContent;
+			const translateZ = document.getElementById("translate-z").querySelector(".widget-value").textContent;
+			const rotateX = degToRad(document.getElementById("rotate-x").querySelector(".widget-value").textContent);
+			const rotateZ = degToRad(document.getElementById("rotate-z").querySelector(".widget-value").textContent);
+
+			console.log(translateX, translateY, translateZ, rotateX, rotateZ);
+
+			planeTransformMatrix = m4.translation(translateX, translateY, translateZ);
+			planeTransformMatrix = m4.xRotate(planeTransformMatrix, rotateX);
+			planeTransformMatrix = m4.zRotate(planeTransformMatrix, rotateZ);
+			
+			// if (method === 'translateX') {
+			// 	planeTransformMatrix = m4.translate(planeTransformMatrix, ui.value - recentTranslate[0], 0, 0);
+			// 	recentTranslate[0] = ui.value;
+			// } else if (method === 'translateY') {
+			// 	planeTransformMatrix = m4.translate(planeTransformMatrix, 0, ui.value - recentTranslate[1], 0);
+			// 	recentTranslate[1] = ui.value;
+			// } else if (method === 'translateZ') {
+			// 	planeTransformMatrix = m4.translate(planeTransformMatrix, 0, 0, ui.value - recentTranslate[2]);
+			// 	recentTranslate[2] = ui.value;
+			// } else if (method === 'rotateX') {
+			// 	planeTransformMatrix = m4.xRotate(planeTransformMatrix, degToRad(ui.value - recentRotate[0]));
+			// 	recentRotate[0] = ui.value;
+			// } else if (method === 'rotateZ') {
+			// 	planeTransformMatrix = m4.zRotate(planeTransformMatrix, degToRad(ui.value - recentRotate[1]));
+			// 	recentRotate[1] = ui.value;
+			// }
 		}
 	}
 
@@ -210,7 +220,7 @@ function main() {
 		// planeUniforms.pvM = m4.multiply(planeUniforms.pM, planeUniforms.vM);
 		planeUniforms.pvM = m4.multiply(planeUniforms.pM, planeUniforms.vM);
 		planeUniforms.u_modelViewProjectionMatrix = m4.multiply(planeUniforms.pvM, planeUniforms.mM);
-		planeUniforms.u_modelViewProjectionMatrix = m4.multiply(planeTransformMatrix, planeUniforms.u_modelViewProjectionMatrix)
+		planeUniforms.u_modelViewProjectionMatrix = m4.multiply(planeUniforms.u_modelViewProjectionMatrix, planeTransformMatrix)
 		// planeUniforms.u_modelViewProjectionMatrix = 
 		// computePlaneMatrix(viewProjectionMatrix, objectTranslation, objectRotation, planeTransformMatrix);
 

@@ -72,14 +72,14 @@
 			value /= step;
 	
 			parent.innerHTML = `
-				<div class="gman-widget-outer">
-					<div class="gman-widget-label">${name}</div>
-					<div class="gman-widget-value"></div>
-					<input class="gman-widget-slider" type="range" min="${min}" max="${max}" value="${value}" />
+				<div class="widget-outer">
+					<div class="widget-label">${name}</div>
+					<div class="widget-value"></div>
+					<input class="widget-slider" type="range" min="${min}" max="${max}" value="${value}" />
 				</div>
 			`;
-			var valueElem = parent.querySelector(".gman-widget-value");
-			var sliderElem = parent.querySelector(".gman-widget-slider");
+			var valueElem = parent.querySelector(".widget-value");
+			var sliderElem = parent.querySelector(".widget-slider");
 	
 			function updateValue(value) {
 				valueElem.textContent = (value * step * uiMult).toFixed(uiPrecision);
@@ -118,7 +118,7 @@
 	
 		function makeCheckbox(options) {
 			const div = document.createElement("div");
-			div.className = "gman-widget-outer";
+			div.className = "widget-outer";
 			const label = document.createElement("label");
 			const id = getWidgetId();
 			label.setAttribute('for', id);
@@ -128,7 +128,7 @@
 			input.type = "checkbox";
 			input.checked = options.value;
 			input.id = id;
-			input.className = "gman-widget-checkbox";
+			input.className = "widget-checkbox";
 			div.appendChild(label);
 			div.appendChild(input);
 			input.addEventListener('change', function(e) {
@@ -147,12 +147,12 @@
 	
 		function makeOption(options) {
 			const div = document.createElement("div");
-			div.className = "gman-widget-outer";
+			div.className = "widget-outer";
 			const label = document.createElement("label");
 			const id = getWidgetId();
 			label.setAttribute('for', id);
 			label.textContent = gopt["ui-" + options.name] || options.name;
-			label.className = "gman-widget-label";
+			label.className = "widget-label";
 			const selectElem = document.createElement("select");
 			options.options.forEach((name, ndx) => {
 				const opt = document.createElement("option");
@@ -161,7 +161,7 @@
 				opt.selected = ndx === options.value;
 				selectElem.appendChild(opt);
 			});
-			selectElem.className = "gman-widget-select";
+			selectElem.className = "widget-select";
 			div.appendChild(label);
 			div.appendChild(selectElem);
 			selectElem.addEventListener('change', function(e) {
