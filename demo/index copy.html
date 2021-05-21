@@ -7,7 +7,6 @@
 		<script src="./src/m4.js"></script>
 		<script src="./src/webgl-utils.js"></script>
 		<script src="./src/primitives.js"></script>
-		<script src="./src/ui.js"></script>		
 		<script src="main copy.js" defer></script>
 	</head>
 
@@ -15,13 +14,51 @@
 		<canvas id="glcanvas"></canvas>
 		<div id="uiContainer">
 			<div id="ui">
-				<p>Adjust Slider Here:</p>
-				<!-- <input id="translate-x" type="range" min="-5" max="5" step="0.1"></input> -->
-				<div id="translate-x"></div>
-				<div id="translate-y"></div>
-				<div id="translate-z"></div>
-				<div id="rotate-x"></div>
-				<div id="rotate-z"></div>
+				<div id="objectList">
+					<p>Select Object Here Below:</p>
+					<input type="radio" name="objectType" value="0" id="cube" checked>
+					<label for="cube">Cube</label>
+					<input type="radio" name="objectType" value="1" id="sphere">
+					<label for="sphere">Sphere</label>
+					<input type="radio" name="objectType" value="2" id="pyramid">
+					<label for="pyramid">Pyramid</label>
+					<input type="radio" name="objectType" value="3" id="cone">
+					<label for="cone">Cone</label>
+					<input type="radio" name="objectType" value="4" id="slinder">
+					<label for="slinder">Slinder</label>
+				</div>
+				<div id="sliderList">
+					<p>Adjust Slider Here:</p>
+					<p>Translation Control</p>
+					<input type="range" value="0" min="-6" max="6" step="0.1" id="xTranslation" list="translation">
+					<label id="xTranslationValue" for="xTranslation">0</label>
+					<input type="range" value="0" min="-6" max="6" step="0.1" id="yTranslation" list="translation">
+					<label id="yTranslationValue" for="yTranslation">0</label>
+					<input type="range" value="0" min="-6" max="6" step="0.1" id="zTranslation" list="translation">
+					<label id="zTranslationValue" for="zTranslation">0</label>
+					<p>Rotaion Control</p>
+					<input type="range" value="0" min="0" max="90" step="any" id="xRotaion" list="rotation">
+					<label id="xRotationValue" for="xRotation">0</label>
+					<input type="range" value="0" min="0" max="90" step="any" id="zRotaion" list="rotation">
+					<label id="zRotationValue" for="zRotation">0</label>
+					<datalist id="translation">
+						<option value="-5"></option>
+						<option value="0"></option>
+						<option value="5"></option>
+					</datalist>
+					<datalist id="rotation">
+						<option value="0"></option>
+						<option value="30"></option>
+						<option value="45"></option>
+						<option value="60"></option>
+						<option value="90"></option>
+					</datalist>
+				</div>
+				<div id="buttonList">
+					<p>Use the Following Button to Clip:</p>
+					<input type="button" id="reset" value="重置">
+					<input type="button" id="clip" value="分割">
+				</div>
 			</div>
 		</div>
 	</body>

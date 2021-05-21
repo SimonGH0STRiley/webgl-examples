@@ -84,38 +84,7 @@ function main() {
 
 	const objectProgram	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
 	const planeProgram	= webglUtils.createProgramInfo(gl, [vsSource, fsSource]);
-
-	// let selectedObject		= null;
-	// let frontObjBufferInfo	= primitives.createCubeWithVertexColorsBufferInfo(gl, 10);
-	// let backObjBufferInfo	= frontObjBufferInfo;
-	// document.getElementById("objList").addEventListener("click", selectObject);
-	// function selectObject() {
-	// 	const objectTypeList = document.getElementsByName("objType");
-	// 	objectTypeList.forEach(currObject => {
-	// 		if (currObject.checked) {
-	// 			// selectedObject = currObject.value;
-	// 			// console.log(selectedObject);
-	// 			console.log(currObject.value);
-	// 			frontObjBufferInfo	= primitives.createSphereWithVertexColorsBufferInfo(gl, 5, 60, 30);
-	// 			backObjBufferInfo	= frontObjBufferInfo;
-	// 		}
-	// 	})
-	// }
-
-	// if (!selectedObject || selectedObject === 'cube') {
-	// 	frontObjBufferInfo	= primitives.createCubeWithVertexColorsBufferInfo(gl, 10);
-	// 	backObjBufferInfo = frontObjBufferInfo;
-	// } else if (selectedObject === 'sphere') {
-	// 	frontObjBufferInfo	= primitives.createSphereWithVertexColorsBufferInfo(gl, 5);
-	// } else if (selectedObject === 'pyramid') {
-	// 	frontObjBufferInfo	= primitives.createTruncatedPyramidWithVertexColorsBufferInfo(gl, 0, 0, 10, 10, 10);
-	// } else if (selectedObject === 'cone') {
-	// 	frontObjBufferInfo	= primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 0, 5, 10);
-	// } else if (selectedObject === 'slinder') {
-	// 	frontObjBufferInfo	= primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 5, 5, 10);
-	// }
-
-
+	
 	const frontObjBufferInfo	= primitives.createCubeWithVertexColorsBufferInfo(gl, 10);
 	const backObjBufferInfo	= frontObjBufferInfo;
 	frontObjBufferInfo.useStencil		= backObjBufferInfo.useStencil		= true;

@@ -587,8 +587,8 @@
 		opt_startLongitude,
 		opt_endLongitude){
 		// 参数定义
-		const warpDivides = (opt_warpDivides <= 0) ? 60 : opt_warpDivides;	// 经线分割数
-		const weftDivides = (opt_weftDivides <= 0) ? 30 : opt_weftDivides;	// 纬线分割数
+		const warpDivides = (!opt_warpDivides || opt_warpDivides <= 0) ? 60 : opt_warpDivides;	// 经线分割数
+		const weftDivides = (!opt_weftDivides || opt_weftDivides <= 0) ? 30 : opt_weftDivides;	// 纬线分割数
 		const startLatitude = opt_startLatitude || 0;
 		const endLatitude = opt_endLatitude || Math.PI;
 		const startLongitude = opt_startLongitude || 0;
@@ -674,8 +674,8 @@
 		opt_verticalDivides,
 		opt_topCap,
 		opt_bottomCap) {
-		const radialDivides = (opt_radialDivides < 3) ? 60 : opt_radialDivides;
-		const verticalDivides = (opt_verticalDivides < 1) ? 1 : opt_verticalDivides;
+		const radialDivides		= (!opt_radialDivides	|| opt_radialDivides < 3) ? 60 : opt_radialDivides;
+		const verticalDivides	= (!opt_verticalDivides	|| opt_verticalDivides < 1) ? 1 : opt_verticalDivides;
 		const topCap = (opt_topCap === undefined) ? true : opt_topCap;
 		const bottomCap = (opt_bottomCap === undefined) ? true : opt_bottomCap;
 		const extra = (topCap ? 2 : 0) + (bottomCap ? 2 : 0);
