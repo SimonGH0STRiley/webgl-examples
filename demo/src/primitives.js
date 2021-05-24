@@ -378,7 +378,9 @@
 	}
 
 	/**
-	 * Array of the indices of corners of each face of a cube.
+	 * Array of the indices of corners of each face of a cube. The
+	 * order of indices are in counter clockwise, such that the 
+	 * directions of faces are all towards outside.
 	 * @type {Array.<number[]>}
 	 */
 	const CUBE_FACE_INDICES = [
@@ -429,7 +431,7 @@
 			[1, 1],
 		];
 
-		const numVertices = 6 * 4;
+		const numVertices = 8 * 3;
 		const positions = webglUtils.createAugmentedTypedArray(3, numVertices);
 		const normals   = webglUtils.createAugmentedTypedArray(3, numVertices);
 		const texCoords = webglUtils.createAugmentedTypedArray(2 , numVertices);
@@ -454,7 +456,7 @@
 			indices.push(offset + 0, offset + 1, offset + 2);
 			indices.push(offset + 0, offset + 2, offset + 3);
 		}
-
+		
 		return {
 			position: positions,
 			normal: normals,
@@ -462,6 +464,21 @@
 			indices: indices,
 		};
 	}
+
+	/**
+	 * Array of the indices of corners of each face of a truncated
+	 * pyramid. The order of indices are in counter clockwise, such
+	 * that the directions of faces are all towards outside.
+	 * @type {Array.<number[]>}
+	 */
+	const PYRAMID_FACE_INDICES = [
+		[3, 7, 5, 1], // right
+		[6, 2, 0, 4], // left
+		[6, 7, 3, 2], // top
+		[0, 1, 5, 4], // bottom
+		[7, 6, 4, 5], // front
+		[2, 3, 1, 0], // back
+	];
 
 	/**
 	 * Creates vertices for a truncated pyramid. A truncated pyramid
@@ -523,18 +540,7 @@
 			[1, 1]
 		];
 	
-		const PYRAMID_FACE_INDICES = [
-			// The order of indices are in counter clockwise, such that
-			// the directions of faces are all towards outside.
-			[3, 7, 5, 1], // right
-			[6, 2, 0, 4], // left
-			[6, 7, 3, 2], // top
-			[0, 1, 5, 4], // bottom
-			[7, 6, 4, 5], // front
-			[2, 3, 1, 0], // back
-		  ];
-	
-		const numVertices = 6 * 4;
+		const numVertices = 8 * 3;
 		const positions = webglUtils.createAugmentedTypedArray(3, numVertices);
 		const normals   = webglUtils.createAugmentedTypedArray(3, numVertices);
 		const texCoords = webglUtils.createAugmentedTypedArray(2 , numVertices);
@@ -553,6 +559,107 @@
 			const offset = 4 * i;
 			indices.push(offset + 0, offset + 1, offset + 2);
 			indices.push(offset + 0, offset + 2, offset + 3);
+		}
+	
+		return{
+			position: positions,
+			normal: normals,
+			texcoord: texCoords,
+			indices: indices
+		}
+	}
+
+	/**
+	 * Array of the indices of corners of each face of a truncated
+	 * regular triangular pyramid.
+	 * @type {Array.<number[]>}
+	 */
+	const TRIANGULAR_PYRAMID_FACE_INDICES = [
+		// The order of indices are in counter clockwise, such that
+		// the directions of faces are all towards outside.
+		[3, 4, 5],		// top
+		[0, 2, 1],		// bottom
+		[0, 1, 4, 3],	// front
+		[1, 2, 5, 4],	// right
+		[2, 0, 3, 5],	// left
+	];
+
+	/**
+	 * Creates vertices for a truncated regular triangular pyramid. A truncated
+	 * regular triangular pyramid can also be used to create regular triangular 
+	 * prisms and regular triangular pyramids. The truncated regular triangular 
+	 * pyramid will be created centered about the origin, with the y axis as 
+	 * its vertical axis. The created pyramid has position, normal and uv
+	 * streams.
+	 *
+	 * @param {number} topLength	Width of top trangle.
+	 * @param {number} bottomLength	Width of bottom pyramid.
+	 * @param {number} height		Height of truncated pyramid.
+	 * @return {Object.<string, TypedArray>} The created plane vertices.
+	 * @memberOf module:primitives
+	 */
+	 function createTruncatedRegularTriangularPyramidVertices(
+		topLength,
+		bottomLength,
+		height) {
+		const theta = Math.PI / 6;
+		const topX = topLength / 2;
+		const topZ = topX * Math.tan(theta);
+		const bottomX = bottomLength / 2;
+		const bottomZ = bottomX * Math.tan(theta);
+		const heightY = height / 2;
+		const slant = Math.atan2((bottomX - topX) * Math.tan(theta), height);
+		const sinSlant = Math.sin(slant);
+		const cosSlant = Math.cos(slant);
+	
+		const cornerVertices = [
+			[-bottomX,	-heightY,	+bottomZ],
+			[+bottomX,	-heightY,	+bottomZ],
+			[0,			-heightY,	-bottomZ * 2],
+			[-topX,		+heightY,	+topZ],
+			[+topX,		+heightY,	+topZ],
+			[0,			+heightY,	-topZ * 2],
+		];
+	
+		const faceNormals = [
+			[+0, +1, +0],					// top
+			[+0, -1, +0],					// bottom
+			[+0, +sinSlant, +cosSlant],		// front
+			[+cosSlant * Math.cos(theta), +sinSlant, -cosSlant * Math.sin(theta)],	// right
+			[-cosSlant * Math.cos(theta), +sinSlant, -cosSlant * Math.sin(theta)],	// left
+		];
+	
+		const uvCoords = [
+			[1, 0],
+			[0, 0],
+			[0, 1],
+			[1, 1]
+		];
+	
+		const numVertices = 6 * 3;
+		const positions = webglUtils.createAugmentedTypedArray(3, numVertices);
+		const normals   = webglUtils.createAugmentedTypedArray(3, numVertices);
+		const texCoords = webglUtils.createAugmentedTypedArray(2 , numVertices);
+		const indices   = webglUtils.createAugmentedTypedArray(3, 2 + 3 * 2, Uint16Array);
+	
+		for (let i = 0; i < 5; i++) {
+			const faceIndices = TRIANGULAR_PYRAMID_FACE_INDICES[i];
+			for (let j = 0; j < faceIndices.length; j++) {
+				const position = cornerVertices[faceIndices[j]];
+				const normal = faceNormals[i];
+				const uv = uvCoords[j];
+				positions.push(position);
+				normals.push(normal);
+				texCoords.push(uv)
+			}
+			if (i < 2) {
+				const offset = 3 * i;
+				indices.push(offset + 0, offset + 1, offset + 2)
+			} else {
+				const offset = 6 + 4 * (i - 2);
+				indices.push(offset + 0, offset + 1, offset + 2);
+				indices.push(offset + 0, offset + 2, offset + 3);
+			}
 		}
 	
 		return{
@@ -756,7 +863,8 @@
 			vertices = makeRandomVertexColors(vertices, {
 					vertsPerColor: 6,
 					rand: function(ndx, channel) {
-						return channel < 3 ? ((128 + Math.random() * 128) | 0) : 255;
+						// return channel < 3 ? ((128 + Math.random() * 128) | 0) : 255;
+						return 255;
 					},
 				});
 			return webglUtils.createBufferInfoFromArrays(gl, vertices);
@@ -766,29 +874,34 @@
 
 
 	return {
+		createPlaneVertices,
 		createPlaneBufferInfo: createBufferInfoFunc(createPlaneVertices),
 		createPlaneBuffers: createBufferFunc(createPlaneVertices),
-		createPlaneVertices,
 		createPlaneWithVertexColorsBufferInfo: createFlattenedFunc(createPlaneVertices),
 		
+		createCubeVertices,
 		createCubeBufferInfo: createBufferInfoFunc(createCubeVertices),
 		createCubeBuffers: createBufferFunc(createCubeVertices),
-		createCubeVertices,
 		createCubeWithVertexColorsBufferInfo: createFlattenedFunc(createCubeVertices),
 		
+		createSphereVertices,
 		createSphereBufferInfo: createBufferInfoFunc(createSphereVertices),
 		createSphereBuffers: createBufferFunc(createSphereVertices),
-		createSphereVertices,
 		createSphereWithVertexColorsBufferInfo: createFlattenedFunc(createSphereVertices),
 		
+		createTruncatedPyramidVertices,
 		createTruncatedPyramidBufferInfo: createBufferInfoFunc(createTruncatedPyramidVertices),
 		createTruncatedPyramidBuffers: createBufferFunc(createTruncatedPyramidVertices),
-		createTruncatedPyramidVertices,
 		createTruncatedPyramidWithVertexColorsBufferInfo: createFlattenedFunc(createTruncatedPyramidVertices),
 
+		createTruncatedRegularTriangularPyramidVertices,
+		createTruncatedRegularTriangularPyramidBufferInfo: createBufferInfoFunc(createTruncatedRegularTriangularPyramidVertices),
+		createTruncatedRegularTriangularPyramidBuffers: createBufferFunc(createTruncatedRegularTriangularPyramidVertices),
+		createTruncatedRegularTriangularPyramidWithVertexColorsBufferInfo: createFlattenedFunc(createTruncatedRegularTriangularPyramidVertices),
+
+		createTruncatedConeVertices,
 		createTruncatedConeBufferInfo: createBufferInfoFunc(createTruncatedConeVertices),
 		createTruncatedConeBuffers: createBufferFunc(createTruncatedConeVertices),
-		createTruncatedConeVertices,
 		createTruncatedConeWithVertexColorsBufferInfo: createFlattenedFunc(createTruncatedConeVertices),
 		
 		deindexVertices,

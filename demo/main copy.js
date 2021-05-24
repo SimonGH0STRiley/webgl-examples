@@ -12,9 +12,48 @@ function main() {
 	const objectVS = `
 		attribute vec4 a_position;
 		attribute vec4 a_color;
+		attribute vec3 a_normal;
+		
+		uniform mat4 u_modelViewProjectionMatrix;
+		uniform mat3 u_normalMatrix;
+		
+		varying highp vec3 v_normal;
+		varying lowp vec4 v_color;
+		
+		void main() {
+			gl_Position = u_modelViewProjectionMatrix * a_position;
+			v_normal = u_normalMatrix * a_normal;
+			v_color = a_color;
+		}
+	`;
+
+	// Object fragment shader program 片段着色器
+	const objectFS = `
+		precision highp float;
+		
+		uniform vec4 u_colorMult;
+		uniform vec3 u_lightPosition;
+
+		varying highp vec3 v_normal;
+		varying lowp vec4 v_color;
+		
+		void main() {
+			vec3 normal = normalize(v_normal);
+			float light = dot(normal, u_lightPosition);
+			gl_FragColor = v_color * u_colorMult;
+			gl_FragColor.xyz *= light;
+		}
+	`;
+
+	// Plane vertex shader program 顶点着色器
+	const planeVS = `
+		attribute vec4 a_position;
+		attribute vec4 a_color;
+		attribute vec3 a_normal;
 		
 		uniform mat4 u_modelViewProjectionMatrix;
 		
+		varying highp vec3 v_normal;
 		varying lowp vec4 v_color;
 		
 		void main() {
@@ -23,10 +62,8 @@ function main() {
 		}
 	`;
 
-	let isClipped = false;
-
-	// Object fragment shader program 片段着色器
-	const objectFS = `
+	// Planefragment shader program 片段着色器
+	const planeFS = `
 		precision highp float;
 		
 		uniform vec4 u_colorMult;
@@ -92,22 +129,25 @@ function main() {
 	`;
 
 	const objectProgram		= webglUtils.createProgramInfo(gl, [objectVS,	objectFS]);
-	const planeProgram		= webglUtils.createProgramInfo(gl, [objectVS,	objectFS]);
+	const planeProgram		= webglUtils.createProgramInfo(gl, [planeVS,	planeFS]);
 	const clippedProgram	= webglUtils.createProgramInfo(gl, [clippingVS,	clippingFS]);
-	const clippingProgram	= webglUtils.createProgramInfo(gl, [clippingVS,	clippingFS]);
-
-	const objectBufferInfo	= [
-		primitives.createCubeWithVertexColorsBufferInfo(gl, 10),
-		primitives.createSphereWithVertexColorsBufferInfo(gl, 5),
-		primitives.createTruncatedPyramidWithVertexColorsBufferInfo(gl, 0, 0, 10, 10, 10),
-		primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 0, 5, 10),
-		primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 5, 5, 10)
-	];
+	
+	const objectBufferInfo	= new Map ([
+		['default',		primitives.createCubeWithVertexColorsBufferInfo(gl, 10)],
+		['cube',		primitives.createCubeWithVertexColorsBufferInfo(gl, 10)],
+		['sphere',		primitives.createSphereWithVertexColorsBufferInfo(gl, 5)],
+		['prism',		primitives.createTruncatedPyramidWithVertexColorsBufferInfo(gl, 8, 10, 8, 10, 10)],
+		['tri-prism',	primitives.createTruncatedRegularTriangularPyramidWithVertexColorsBufferInfo(gl, 10, 10, 10)],
+		['pyramid',		primitives.createTruncatedPyramidWithVertexColorsBufferInfo(gl, 0, 0, 10, 10, 10)],
+		['tri-pyramid',	primitives.createTruncatedRegularTriangularPyramidWithVertexColorsBufferInfo(gl, 0, 15, 10)],
+		['slinder',		primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 5, 5, 10)],
+		['cone',		primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 0, 5, 10)],
+	]);
 	document.getElementById("objectList").addEventListener("change", () => {
 		const objectTypeList = document.getElementsByName("objectType");
 		objectTypeList.forEach((currObject) => {
 			if (currObject.checked) {
-				objectsToDraw[0].bufferInfo = objectBufferInfo[currObject.value];
+				objectsToDraw[0].bufferInfo = objectBufferInfo.get(currObject.id);
 			}
 		});
 	});
@@ -134,9 +174,9 @@ function main() {
 
 	let clippingFront, clippingBack	= undefined;
 	document.getElementById("clip").addEventListener("click", () => {
-		console.log('clip start here');
-
 		isClipped = true;
+		document.getElementById("objectList").style.display = "none";
+		document.getElementById("sliderList").style.display = "none";
 
 		const frontObjBufferInfo	= objectsToDraw[0].bufferInfo;
 		const backObjBufferInfo		= frontObjBufferInfo;
@@ -161,7 +201,7 @@ function main() {
 			bufferInfo: frontObjBufferInfo,
 			uniforms: frontObjectUniforms
 		}, {
-			programInfo: clippingProgram,
+			programInfo: planeProgram,
 			bufferInfo: clippingFrontBufferInfo,
 			uniforms: frontPlaneUniforms
 		}, {
@@ -169,17 +209,18 @@ function main() {
 			bufferInfo: backObjBufferInfo,
 			uniforms: backObjectUniforms
 		}, {
-			programInfo: clippingProgram,
+			programInfo: planeProgram,
 			bufferInfo: clippingBackBufferInfo,
 			uniforms: backPlaneUniforms
 		}
 		];
-
-		console.log('clip end here')
 	});
 	document.getElementById("reset").addEventListener("click", () => {
 		// location.reload();
 		isClipped = false;
+		document.getElementById("objectList").style.display = "block";
+		document.getElementById("sliderList").style.display = "block";
+
 		objectsToDraw.splice(2, 2);
 		objectsToDraw = [{
 			programInfo: objectProgram,
@@ -201,13 +242,18 @@ function main() {
 	let fieldOfViewRadians = degToRad(60);
 	let cameraHeight = 50;
 
+	const lightPosition = m4.normalize([10, 20, 20]);
+	let isClipped = false;
+
 	let objectUniforms = {
 		u_modelViewProjectionMatrix: null,
-		u_colorMult: [0.5, 1, 0.5, 1]
+		u_colorMult: [0.2, 1, 0.2, 1],
+		u_normalMatrix: null,
+		u_lightPosition: null
 	};
 	let planeUniforms = {
 		u_modelViewProjectionMatrix: null,
-		u_colorMult: [0, 0, 1, 0.4]
+		u_colorMult: [0, 0, 1, 0.5]
 	};
 	let frontObjectUniforms = {
 		u_modelMatrix: null,
@@ -242,7 +288,7 @@ function main() {
 
 	let objectsToDraw = [{
 		programInfo: objectProgram,
-		bufferInfo: objectBufferInfo[0],
+		bufferInfo: objectBufferInfo.get('default'),
 		uniforms: objectUniforms
 	}, {
 		programInfo: planeProgram,
@@ -310,9 +356,9 @@ function main() {
 		// Tell WebGL how to convert from clip space to pixels
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-		gl.enable(gl.CULL_FACE);
-		gl.frontFace(gl.CW);
-		gl.cullFace(gl.FRONT);
+		// gl.enable(gl.CULL_FACE);
+		// gl.frontFace(gl.CW);
+		// gl.cullFace(gl.FRONT);
 		gl.enable(gl.DEPTH_TEST);
 
 		// Clear the canvas AND the depth buffer.
@@ -332,13 +378,15 @@ function main() {
 		let viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
 
 		let objectRotation		=  [ 0,  time,  0];
-		let frontObjRotation	=  [ 0,  0,  0];
-		let backObjRotation		=  [ 0,  0,  0];
+		let frontObjRotation	=  [ 0,  time,  0];
+		let backObjRotation		=  [ 0,  time,  0];
 
 		if (!isClipped) {
 			// 对每个物体计算矩阵
 			objectUniforms.u_modelViewProjectionMatrix = 
 				computeObjectMatrix(viewProjectionMatrix, objectTranslation, objectRotation);
+			objectUniforms.u_normalMatrix = m4.normalFromMat4(computeModelMatrix(objectTranslation, objectRotation));
+			objectUniforms.u_lightPosition = lightPosition;
 
 			planeUniforms.u_modelViewProjectionMatrix = 
 				computePlaneMatrix(viewProjectionMatrix, objectTranslation, objectRotation, planeTransformMatrix);
