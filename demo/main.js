@@ -87,24 +87,27 @@ function main() {
 	
 	const frontObjBufferInfo	= primitives.createCubeWithVertexColorsBufferInfo(gl, 10);
 	const backObjBufferInfo	= frontObjBufferInfo;
-	frontObjBufferInfo.useStencil		= backObjBufferInfo.useStencil		= true;
-	frontObjBufferInfo.stencilClear		= backObjBufferInfo.stencilClear	= true;
-	frontObjBufferInfo.stencilWrite		= backObjBufferInfo.stencilWrite	= true;
-	frontObjBufferInfo.stencilFrontOp	= backObjBufferInfo.stencilFrontOp	= [gl.KEEP, gl.KEEP, gl.DECR];
-	frontObjBufferInfo.stencilBackOp	= backObjBufferInfo.stencilBackOp	= [gl.KEEP, gl.KEEP, gl.INCR];
-	frontObjBufferInfo.stencilFunc		= backObjBufferInfo.stencilFunc		= [gl.ALWAYS, 1, 0xFF];
+	const frontObjRenderOption = {};
+	const backObjRenderOption = {};
+	frontObjRenderOption.useStencil		= backObjRenderOption.useStencil		= true;
+	/*frontObjRenderOption.stencilClear		= */backObjRenderOption.stencilClear	= true;
+	/*frontObjRenderOption.stencilWrite		= */backObjRenderOption.stencilWrite	= true;
+	frontObjRenderOption.stencilFrontOp	= backObjRenderOption.stencilFrontOp	= [gl.KEEP, gl.KEEP, gl.DECR];
+	frontObjRenderOption.stencilBackOp	= backObjRenderOption.stencilBackOp	= [gl.KEEP, gl.KEEP, gl.INCR];
+	frontObjRenderOption.stencilFunc		= backObjRenderOption.stencilFunc		= [gl.ALWAYS, 1, 0xFF];
 	
 	let clippingTransformMatrix = m4.identity();
 	let recentTransform = [0, 0, 0, 0];
 
 	let clippingFrontBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 30, 30, 1, 1, clippingTransformMatrix);
 	let clippingBackBufferInfo	= clippingFrontBufferInfo;
-	clippingFrontBufferInfo.useStencil	= clippingBackBufferInfo.useStencil	= true;
+	clippingFrontBufferInfo.useStencil	= clippingBackBufferInfo.useStencil	= false;
 	clippingFrontBufferInfo.stencilOp	= clippingBackBufferInfo.stencilOp	= [gl.KEEP, gl.KEEP, gl.KEEP];
 	clippingFrontBufferInfo.stencilFunc	= clippingBackBufferInfo.stencilFunc= [gl.EQUAL, 1, 0xFF];
-	// clippingFrontBufferInfo.useStencil	= true;
-	// clippingFrontBufferInfo.stencilOp	= [gl.KEEP, gl.KEEP, gl.KEEP];
-	// clippingFrontBufferInfo.stencilFunc	= [gl.EQUAL, 1, 0xFF];
+	clippingFrontBufferInfo.useStencil	= true;
+	clippingFrontBufferInfo.disableDepth = true;
+	clippingFrontBufferInfo.stencilOp	= [gl.KEEP, gl.KEEP, gl.KEEP];
+	clippingFrontBufferInfo.stencilFunc	= [gl.EQUAL, 1, 0xFF];
 	// clippingBackBufferInfo.useStencil	= true;
 	// clippingBackBufferInfo.stencilOp	= [gl.KEEP, gl.KEEP, gl.KEEP];
 	// clippingBackBufferInfo.stencilFunc	= [gl.EQUAL, 1, 0xFF];
@@ -151,7 +154,7 @@ function main() {
 		u_modelViewProjectionMatrix: null,
 		u_viewNormalMatrix: null,
 		u_clippingPlane: null,
-		u_colorMult: [0.5, 1, 0.5, 1]
+		u_colorMult: [0.5, 1, 0.5, 0.8]
 	};
 	let backObjUniforms = {
 		u_modelMatrix: null,
@@ -160,7 +163,7 @@ function main() {
 		u_modelViewProjectionMatrix: null,
 		u_viewNormalMatrix: null,
 		u_clippingPlane: null,
-		u_colorMult: [0.5, 0.5, 1, 1]
+		u_colorMult: [0.5, 0.5, 1, 0.8]
 	};
 	let frontPlaneUniforms = {
 		u_modelViewProjectionMatrix: null,
@@ -171,26 +174,38 @@ function main() {
 		u_colorMult: [1, 0, 0, 1]
 	};
 
-	let frontObjTranslation 	= [  0,  7,  0];
+	let frontObjTranslation 	= [  0, -7,  0];
 	let backObjTranslation 		= [  0, -7,  0];
 
 	let objectsToDraw = [{
-		programInfo: objectProgram,
-		bufferInfo: frontObjBufferInfo,
-		uniforms: frontObjUniforms
-	}, {
 		programInfo: planeProgram,
-		bufferInfo: clippingFrontBufferInfo,
-		uniforms: frontPlaneUniforms
-	}, {
-		programInfo: objectProgram,
 		bufferInfo: backObjBufferInfo,
-		uniforms: backObjUniforms
-	}, {
+		uniforms: backObjUniforms,
+		renderOption: {
+			//disableColor: true,
+			cullFace: gl.BACK,
+		},
+	}/*,{
 		programInfo: planeProgram,
 		bufferInfo: clippingBackBufferInfo,
-		uniforms: backPlaneUniforms
-	}
+		uniforms: backPlaneUniforms,
+		renderOption: {
+			disableDepthWrite: true,
+			depthFunc: gl.GREATER,
+		},
+	},{
+		programInfo: objectProgram,
+		bufferInfo: backObjBufferInfo,
+		uniforms: backObjUniforms,
+		renderOption: {
+			disableDepth: true,
+		},
+	},/*{
+		programInfo: planeProgram,
+		bufferInfo: clippingBackBufferInfo,
+		uniforms: backPlaneUniforms,
+		renderOption: {},
+	},*/
 	];
 
 	function computeModelMatrix(translation, rotation) {
@@ -241,8 +256,10 @@ function main() {
 		// Tell WebGL how to convert from clip space to pixels
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-		//gl.enable(gl.CULL_FACE);
+		gl.enable(gl.CULL_FACE);
 		gl.enable(gl.DEPTH_TEST);
+		gl.enable(gl.BLEND);
+		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
 		// Clear the canvas AND the depth buffer.
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
@@ -289,6 +306,7 @@ function main() {
 		objectsToDraw.forEach(function(object) {
 		let programInfo = object.programInfo;
 		let bufferInfo = object.bufferInfo;
+		let renderOption = object.renderOption;
 		let bindBuffers = false;
 
 		if (programInfo !== lastUsedProgramInfo) {
@@ -309,32 +327,62 @@ function main() {
 		// 设置uniform变量
 		webglUtils.setUniforms(programInfo, object.uniforms);
 
+		// 渲染选项
+
+		if (renderOption.disableDepth) {
+			gl.disable(gl.DEPTH_TEST);
+		} else {
+			gl.enable(gl.DEPTH_TEST);
+		}
+		if (renderOption.disableDepthWrite) {
+			gl.depthMask(false);
+		} else {
+			gl.depthMask(true);
+		}
+		if (renderOption.depthFunc) {
+			gl.depthFunc(renderOption.depthFunc);
+		} else {
+			gl.depthMask(gl.LESS);
+		}
+
+		if (renderOption.disableColor) {
+			gl.colorMask(false, false, false, false);
+		} else {
+			gl.colorMask(true, true, true, true);
+		}
+
+		if (renderOption.cullFace) {
+			gl.cullFace(renderOption.cullFace);
+		} else {
+			gl.cullFace(gl.FRONT_AND_BACK);
+		}
+
 		// Stencil 相关
-		if (bufferInfo.useStencil) {
+		if (renderOption.useStencil) {
 			gl.enable(gl.STENCIL_TEST);
 		} else {
 			gl.disable(gl.STENCIL_TEST);
 		}
-		if (bufferInfo.stencilClear) {
+		if (renderOption.stencilClear) {
 			gl.stencilMask(0xFF);
 			gl.clear(gl.STENCIL_BUFFER_BIT);
 		}
-		if (bufferInfo.stencilWrite) {
+		if (renderOption.stencilWrite) {
 			gl.stencilMask(0xFF);
 		} else {
 			gl.stencilMask(0);
 		}
-		if (bufferInfo.stencilOp) {
-			gl.stencilOp(bufferInfo.stencilOp[0], bufferInfo.stencilOp[1], bufferInfo.stencilOp[2]);
+		if (renderOption.stencilOp) {
+			gl.stencilOp(renderOption.stencilOp[0], renderOption.stencilOp[1], renderOption.stencilOp[2]);
 		}
-		if (bufferInfo.stencilFrontOp) {
-			gl.stencilOpSeparate(gl.FRONT, bufferInfo.stencilFrontOp[0], bufferInfo.stencilFrontOp[1], bufferInfo.stencilFrontOp[2]);
+		if (renderOption.stencilFrontOp) {
+			gl.stencilOpSeparate(gl.FRONT, renderOption.stencilFrontOp[0], renderOption.stencilFrontOp[1], renderOption.stencilFrontOp[2]);
 		}
-		if (bufferInfo.stencilBackOp) {
-			gl.stencilOpSeparate(gl.BACK, bufferInfo.stencilBackOp[0], bufferInfo.stencilBackOp[1], bufferInfo.stencilBackOp[2]);
+		if (renderOption.stencilBackOp) {
+			gl.stencilOpSeparate(gl.BACK, renderOption.stencilBackOp[0], renderOption.stencilBackOp[1], renderOption.stencilBackOp[2]);
 		}
-		if (bufferInfo.stencilFunc) {
-			gl.stencilFunc(bufferInfo.stencilFunc[0], bufferInfo.stencilFunc[1], bufferInfo.stencilFunc[2])
+		if (renderOption.stencilFunc) {
+			gl.stencilFunc(renderOption.stencilFunc[0], renderOption.stencilFunc[1], renderOption.stencilFunc[2])
 		}
 		// 绘制3D图形
 		gl.drawArrays(gl.TRIANGLES, 0, bufferInfo.numElements);
