@@ -35,7 +35,7 @@ function main() {
 		
 		void main() {
 			gl_FragColor = v_color * u_colorMult;
-			gl_FragColor.w = u_colorMult.w;
+			gl_FragColor.a = u_colorMult.a;
 		}
 	`;
 
@@ -85,7 +85,8 @@ function main() {
 		void main() {
 			vec4 planeInEC = planeToEC(u_clippingPlane, u_viewMatrix, u_viewNormalMatrix);
 			float distance = calDistance(planeInEC, v_modelViewPosition);
-			if (distance < 0.0) {
+			float planeSide = dot(v_modelViewPosition, planeInEC.xyz);
+			if (distance * planeSide < 0.0) {
 				discard;
 			}
 			gl_FragColor = v_color * u_colorMult;
@@ -402,13 +403,16 @@ function main() {
 		// Tell WebGL how to convert from clip space to pixels
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-		gl.enable(gl.CULL_FACE);
-		gl.frontFace(gl.CCW);
-		//gl.cullFace(gl.FRONT);
+		// TODO: 实现光照后再决定使用哪个
+		gl.enable(gl.BLEND);
+		// gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+		gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+		// gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+		
 		gl.enable(gl.DEPTH_TEST);
 		gl.colorMask(true, true, true, true);
 		gl.depthMask(true);
-
+		gl.clearColor(1, 1, 1, 1);
 		// Clear the canvas AND the depth buffer.
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
@@ -495,7 +499,7 @@ function main() {
 
 		// 设置uniform变量
 		webglUtils.setUniforms(programInfo, object.uniforms);
-
+		/*
 		if (!isClipped) {
 			if (programInfo === objectProgram) {
 				gl.depthMask(true);
@@ -509,9 +513,9 @@ function main() {
 			}
 		} else {
 			gl.depthMask(true);
-			gl.disable(gl.BLEND);
+			//gl.disable(gl.BLEND);
 		}
-
+		*/
 		if (renderOption.disableDepth) {
 			gl.disable(gl.DEPTH_TEST);
 		} else {
