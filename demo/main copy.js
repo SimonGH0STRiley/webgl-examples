@@ -125,7 +125,7 @@ function main() {
 			vec4 planeInEC = planeToEC(u_clippingPlane, u_viewMatrix, u_viewNormalMatrix);
 			float distance = calDistance(planeInEC, v_modelViewPosition);
 			float planeSide = dot(v_modelViewPosition, planeInEC.xyz);
-			if (distance * planeSide < 0.0) {
+			if (distance * planeSide < 1e-4) {
 				discard;
 			}
 			gl_FragColor = v_color * u_colorMult;
@@ -212,25 +212,26 @@ function main() {
 			}
 		});
 	});
-	
+	let planeInfo = {
+		xTranslation: 0,
+		yTranslation: 0,
+		zTranslation: 0,
+		xRotation: 0,
+		zRotation: 0,
+	}
 	let planeTransformMatrix = m4.identity();
-	let planeBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 30, 30, 1, 1, planeTransformMatrix);
-	document.getElementById("sliderList").addEventListener("input", () => {
-		const translateX = document.getElementById("xTranslation").value;
-		const translateY = document.getElementById("yTranslation").value;
-		const translateZ = document.getElementById("zTranslation").value;
-		const rotateX = document.getElementById("xRotaion").value;
-		const rotateZ = document.getElementById("zRotaion").value;
-
-		document.getElementById("xTranslationValue").textContent = translateX;
-		document.getElementById("yTranslationValue").textContent = translateY;
-		document.getElementById("zTranslationValue").textContent = translateZ;
-		document.getElementById("xRotationValue").textContent = rotateX;
-		document.getElementById("zRotationValue").textContent = rotateZ;
-
+	function updatePlaneTransformMatrix(translateX, translateY, translateZ, rotateX, rotateZ) {
 		planeTransformMatrix = m4.translation(translateX, translateY, translateZ);
 		planeTransformMatrix = m4.xRotate(planeTransformMatrix, degToRad(rotateX));
 		planeTransformMatrix = m4.zRotate(planeTransformMatrix, degToRad(rotateZ));
+	}
+	let planeBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 30, 30, 1, 1, planeTransformMatrix);
+	document.getElementById("sliderList").addEventListener("input", (event) => {
+		const editProp = event.target.id;
+		const newValue = event.target.value;
+		planeInfo[editProp] = newValue;
+		document.getElementById(editProp + "Value").textContent = newValue;
+		updatePlaneTransformMatrix(planeInfo.xTranslation, planeInfo.yTranslation, planeInfo.zTranslation, planeInfo.xRotation, planeInfo.zRotation);
 	});
 
 	let clippingFront, clippingBack	= undefined;
@@ -294,7 +295,7 @@ function main() {
 	};
 	let planeInnerUniforms = {
 		u_modelViewProjectionMatrix: null,
-		u_colorMult: [0, 0, 0.8, 0.5]
+		u_colorMult: [0, 0, 0.8, 0.8]
 	};
 	let frontObjectUniforms = {
 		u_modelMatrix: null,
@@ -592,8 +593,8 @@ function main() {
 
 		// TODO: 实现光照后再决定使用哪个
 		gl.enable(gl.BLEND);
-		// gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-		gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+		// gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 		// gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 		
 		gl.enable(gl.DEPTH_TEST);
