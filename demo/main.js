@@ -384,6 +384,35 @@ function main() {
 		if (renderOption.stencilFunc) {
 			gl.stencilFunc(renderOption.stencilFunc[0], renderOption.stencilFunc[1], renderOption.stencilFunc[2])
 		}
+
+		// Stencil 相关
+		if (bufferInfo.useStencil) {
+			gl.enable(gl.STENCIL_TEST);
+		} else {
+			gl.disable(gl.STENCIL_TEST);
+		}
+		if (bufferInfo.stencilClear) {
+			gl.stencilMask(0xFF);
+			gl.clear(gl.STENCIL_BUFFER_BIT);
+		}
+		if (bufferInfo.stencilWrite) {
+			gl.stencilMask(0xFF);
+		} else {
+			gl.stencilMask(0);
+		}
+		if (bufferInfo.stencilOp) {
+			gl.stencilOp(bufferInfo.stencilOp[0], bufferInfo.stencilOp[1], bufferInfo.stencilOp[2]);
+		}
+		if (bufferInfo.stencilFrontOp) {
+			gl.stencilOpSeparate(gl.FRONT, bufferInfo.stencilFrontOp[0], bufferInfo.stencilFrontOp[1], bufferInfo.stencilFrontOp[2]);
+		}
+		if (bufferInfo.stencilBackOp) {
+			gl.stencilOpSeparate(gl.BACK, bufferInfo.stencilBackOp[0], bufferInfo.stencilBackOp[1], bufferInfo.stencilBackOp[2]);
+		}
+		if (bufferInfo.stencilFunc) {
+			gl.stencilFunc(bufferInfo.stencilFunc[0], bufferInfo.stencilFunc[1], bufferInfo.stencilFunc[2])
+		}
+
 		// 绘制3D图形
 		gl.drawArrays(gl.TRIANGLES, 0, bufferInfo.numElements);
 		});
