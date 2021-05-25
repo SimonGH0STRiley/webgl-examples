@@ -8,7 +8,7 @@ function main() {
 		return;
 	}
 
-	// Object vertex shader program 顶点着色器
+	// Object vertex shader program
 	const objectVS = `
 		attribute vec4 a_position;
 		attribute vec4 a_color;
@@ -27,7 +27,7 @@ function main() {
 		}
 	`;
 
-	// Object fragment shader program 片段着色器
+	// Object fragment shader program
 	const objectFS = `
 		precision highp float;
 		
@@ -39,13 +39,13 @@ function main() {
 		
 		void main() {
 			vec3 normal = normalize(v_normal);
-			float light = dot(normal, u_lightPosition);
+			float light = abs(dot(normal, u_lightPosition));
 			gl_FragColor = v_color * u_colorMult;
-			gl_FragColor.xyz *= light;
+			gl_FragColor.xyz = gl_FragColor.xyz * light * gl_FragColor.w;
 		}
 	`;
 
-	// Plane vertex shader program 顶点着色器
+	// Plane vertex shader program
 	const planeVS = `
 		attribute vec4 a_position;
 		attribute vec4 a_color;
@@ -62,7 +62,7 @@ function main() {
 		}
 	`;
 
-	// Planefragment shader program 片段着色器
+	// Planefragment shader program
 	const planeFS = `
 		precision highp float;
 		
@@ -76,8 +76,8 @@ function main() {
 		}
 	`;
 
-	// Clipping vertex shader program 顶点着色器
-	const clippingVS = `
+	// Clipped vertex shader program
+	const clippedVS = `
 		attribute vec4 a_position;
 		attribute vec4 a_color;
 		
@@ -94,8 +94,8 @@ function main() {
 		}
 	`;
 
-	// clipping fragment shader program 片段着色器
-	const clippingFS = `
+	// Clipped fragment shader program
+	const clippedFS = `
 		precision highp float;
 		
 		uniform mat4 u_viewMatrix;
@@ -132,7 +132,7 @@ function main() {
 
 	const objectProgram		= webglUtils.createProgramInfo(gl, [objectVS,	objectFS]);
 	const planeProgram		= webglUtils.createProgramInfo(gl, [planeVS,	planeFS]);
-	const clippedProgram	= webglUtils.createProgramInfo(gl, [clippingVS,	clippingFS]);
+	const clippedProgram	= webglUtils.createProgramInfo(gl, [clippedVS,	clippedFS]);
 	
 	const objectBufferInfo	= new Map ([
 		['default',		primitives.createCubeWithVertexColorsBufferInfo(gl, 10)],
@@ -150,6 +150,9 @@ function main() {
 		objectTypeList.forEach((currObject) => {
 			if (currObject.checked) {
 				objectsToDraw[0].bufferInfo = objectBufferInfo.get(currObject.id);
+				objectsToDraw[2].bufferInfo = objectBufferInfo.get(currObject.id);
+				objectsToDraw[3].bufferInfo = objectBufferInfo.get(currObject.id);
+				objectsToDraw[4].bufferInfo = objectBufferInfo.get(currObject.id);
 			}
 		});
 	});
@@ -244,7 +247,7 @@ function main() {
 	let fieldOfViewRadians = degToRad(60);
 	let cameraHeight = 50;
 
-	const lightPosition = m4.normalize([10, 20, 20]);
+	const lightPosition = m4.normalize([20, 20, 50]);
 	let isClipped = false;
 
 	let objectUniforms = {
@@ -302,24 +305,40 @@ function main() {
 		u_colorMult: [1, 0, 0, 1]
 	};
 
-	let objectTranslation 	= [  0,  0,  0];
+	let objectTranslation 			= [  0,  0,  0];
 	let frontObjectTranslation 		= [  0,  7,  0];
 	let backObjectTranslation 		= [  0, -7,  0];
 
-	let objectsToDraw = [{
-			// 1
+	// let objectsToDraw = new Map (
+	// 	['draw', {
+	// 		// 画几何体背面到深度缓冲
+	// 		programInfo: objectProgram,
+	// 		bufferInfo: objectBufferInfo.get('default'),
+	// 		uniforms: objectUniforms,
+	// 		opt: 1,
+	// 		renderOption: {
+	// 			disableColor: true,
+	// 			cullFace: gl.FRONT,
+	// 		},
+	// 	}],
+
+	// );
+	let  objectsToDraw = [{
+			// 画几何体背面到深度缓冲
 			programInfo: objectProgram,
 			bufferInfo: objectBufferInfo.get('default'),
 			uniforms: objectUniforms,
+			opt: 1,
 			renderOption: {
 				disableColor: true,
 				cullFace: gl.FRONT,
-			},
+			}
 		}, {
-			// 2
+			// 画在几何体后面的平面
 			programInfo: planeProgram,
 			bufferInfo: planeBufferInfo,
 			uniforms: planeUniforms,
+			step: 2,
 			renderOption: {
 				disableColor: false,
 				disableDepthWrite: true,
@@ -328,7 +347,7 @@ function main() {
 		}, {
 			// 3
 			programInfo: objectProgram,
-			bufferInfo: objectBufferInfo[1],
+			bufferInfo: objectBufferInfo.get('default'),
 			uniforms: objectUniforms,
 			renderOption: {
 				disableDepth: true,
@@ -337,8 +356,8 @@ function main() {
 			},
 		}, {
 			// 4
-			programInfo: clippingProgram,
-			bufferInfo: objectBufferInfo[1],
+			programInfo: clippedProgram,
+			bufferInfo: objectBufferInfo.get('default'),
 			uniforms: objectClippedUniforms,
 			renderOption: {
 				clearDepth: true,
@@ -350,9 +369,9 @@ function main() {
 				stencilFunc: [gl.ALWAYS, 1, 0xFF],
 			}
 		}, {
-			// 6
+		// 	// 6
 			programInfo: objectProgram,
-			bufferInfo: objectBufferInfo[1],
+			bufferInfo: objectBufferInfo.get('default'),
 			uniforms: objectUniforms,
 			renderOption: {
 				clearDepth: true,
@@ -369,12 +388,11 @@ function main() {
 				stencilFunc: [gl.NOTEQUAL, 1, 0xFF],
 			}
 		}, {
-			// 5
+			// Draw clipping plane
 			programInfo: planeProgram,
 			bufferInfo: planeBufferInfo,
 			uniforms: planeInnerUniforms,
 			renderOption: {
-				
 				disableDepth: true,
 				useStencil: true,
 				stencilOp: [gl.KEEP, gl.KEEP, gl.KEEP],
