@@ -26,7 +26,6 @@ function main() {
 			v_color = a_color;
 		}
 	`;
-
 	// Object fragment shader program
 	const objectFS = `
 		precision highp float;
@@ -43,10 +42,8 @@ function main() {
 			gl_FragColor = v_color * u_colorMult;
 			gl_FragColor.rgb = gl_FragColor.rgb * light * gl_FragColor.a;
 			gl_FragColor.a = u_colorMult.a;
-			
 		}
 	`;
-
 	// Plane vertex shader program
 	const planeVS = `
 		attribute vec4 a_position;
@@ -63,7 +60,6 @@ function main() {
 			v_color = a_color;
 		}
 	`;
-
 	// Planefragment shader program
 	const planeFS = `
 		precision highp float;
@@ -77,7 +73,6 @@ function main() {
 			gl_FragColor.a = u_colorMult.a;
 		}
 	`;
-
 	// Clipping vertex shader program
 	const clippingVS = `
 		attribute vec4 a_position;
@@ -95,7 +90,6 @@ function main() {
 			v_color = a_color;
 		}
 	`;
-
 	// Clipping fragment shader program
 	const clippingFS = `
 		precision highp float;
@@ -131,25 +125,27 @@ function main() {
 			gl_FragColor = v_color * u_colorMult;
 		}
 	`;
-
 	// Clipped vertex shader program
 	const clippedVS = `
 		attribute vec4 a_position;
 		attribute vec4 a_color;
+		attribute vec3 a_normal;
 		
 		uniform mat4 u_modelViewMatrix;
 		uniform mat4 u_modelViewProjectionMatrix;
+		uniform mat3 u_normalMatrix;
 		
+		varying highp vec3 v_normal;
 		varying lowp vec4 v_color;
 		varying vec3 v_modelViewPosition;
 		
 		void main() {
 			v_modelViewPosition = (u_modelViewMatrix * a_position).xyz;
 			gl_Position = u_modelViewProjectionMatrix * a_position;
+			v_normal = u_normalMatrix * a_normal;
 			v_color = a_color;
 		}
 	`;
-
 	// Clipped fragment shader program
 	const clippedFS = `
 		precision highp float;
@@ -158,7 +154,9 @@ function main() {
 		uniform mat3 u_viewNormalMatrix;
 		uniform vec4 u_clippingPlane;
 		uniform vec4 u_colorMult;
+		uniform vec3 u_lightPosition;
 
+		varying highp vec3 v_normal;
 		varying lowp vec4 v_color;
 		varying vec3 v_modelViewPosition;
 
@@ -181,7 +179,12 @@ function main() {
 			if (distance < 0.0) {
 				discard;
 			}
+			vec3 normal = normalize(v_normal);
+			float light = abs(dot(normal, u_lightPosition));
 			gl_FragColor = v_color * u_colorMult;
+			gl_FragColor = v_color * u_colorMult;
+			gl_FragColor.rgb = gl_FragColor.rgb * light * gl_FragColor.a;
+			gl_FragColor.a = u_colorMult.a;
 		}
 	`;
 
@@ -191,7 +194,6 @@ function main() {
 	const clippedProgram	= webglUtils.createProgramInfo(gl, [clippedVS,	clippedFS]);
 	
 	const objectBufferInfo	= new Map ([
-		['default',		primitives.createCubeWithVertexColorsBufferInfo(gl, 10)],
 		['cube',		primitives.createCubeWithVertexColorsBufferInfo(gl, 10)],
 		['sphere',		primitives.createSphereWithVertexColorsBufferInfo(gl, 5)],
 		['prism',		primitives.createTruncatedPyramidWithVertexColorsBufferInfo(gl, 8, 10, 8, 10, 10)],
@@ -202,7 +204,7 @@ function main() {
 		['cone',		primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 0, 5, 10)],
 	]);
 
-	let currentObjectKey = 'default'; 
+	let currentObjectKey = 'cube'; 
 	document.getElementById("objectList").addEventListener("change", () => {
 		const objectTypeList = document.getElementsByName("objectType");
 		objectTypeList.forEach((currObject) => {
@@ -234,10 +236,13 @@ function main() {
 	});
 
 	let clippingFront, clippingBack	= undefined;
-	document.getElementById("clip").addEventListener("click", () => {
+	document.getElementById("clipButton").addEventListener("click", () => {
 		isClipped = true;
 		document.getElementById("objectList").style.display = "none";
 		document.getElementById("sliderList").style.display = "none";
+		document.getElementById("clipButton").style.display = "none";
+		document.getElementById("revertButton").style.display = "";
+		document.getElementById("resetButton").style.display = "none";
 
 		const frontObjBufferInfo	= objectBufferInfo.get(currentObjectKey);
 		const backObjBufferInfo		= frontObjBufferInfo;
@@ -249,18 +254,18 @@ function main() {
 		clippingBack	= m4.reverseVec4(clippingFront);
 		clippingObjectsMap(objectsMapToDraw, frontObjBufferInfo, backObjBufferInfo, clippingFrontBufferInfo, clippingBackBufferInfo);
 	});
-	document.getElementById("revert").addEventListener("click", () => {
+	document.getElementById("revertButton").addEventListener("click", () => {
 		isClipped = false;
 		document.getElementById("objectList").style.display = "block";
 		document.getElementById("sliderList").style.display = "block";
-
+		document.getElementById("clipButton").style.display = "";
+		document.getElementById("revertButton").style.display = "none";
+		document.getElementById("resetButton").style.display = "";
 		initObjectsMap(objectsMapToDraw, currentObjectKey);
 	});
-	document.getElementById("reset").addEventListener("click", () => {
+	document.getElementById("resetButton").addEventListener("click", () => {
 		isClipped = false;
-		currentObjectKey = 'default';
 		planeTransformMatrix = m4.identity();
-		initObjectsMap(objectsMapToDraw, currentObjectKey);
 	});
 
 	function degToRad(d) {
@@ -276,7 +281,7 @@ function main() {
 
 	let objectUniforms = {
 		u_modelViewProjectionMatrix: null,
-		u_colorMult: [0.2, 1, 0.2, 0.8],
+		u_colorMult: [0.08, 0.8, 0.45, 0.8],
 		u_normalMatrix: null,
 		u_lightPosition: null
 	};
@@ -290,29 +295,33 @@ function main() {
 	};
 	let planeUniforms = {
 		u_modelViewProjectionMatrix: null,
-		u_colorMult: [0, 0, 0.5, 0.5]
+		u_colorMult: [0.4, 0.88, 0.88, 0.5]
 	};
 	let planeInnerUniforms = {
 		u_modelViewProjectionMatrix: null,
-		u_colorMult: [0, 0, 0.8, 0.5]
+		u_colorMult: [0.84, 0.5, 0.12, 1]
 	};
 	let frontObjectUniforms = {
 		u_modelMatrix: null,
 		u_viewMatrix: null,
 		u_modelViewMatrix: null,
 		u_modelViewProjectionMatrix: null,
+		u_colorMult: [0.5, 1, 0.5, 0.8],
 		u_viewNormalMatrix: null,
 		u_clippingPlane: null,
-		u_colorMult: [0.5, 1, 0.5, 0.8]
+		u_normalMatrix: null,
+		u_lightPosition: null
 	};
 	let backObjectUniforms = {
 		u_modelMatrix: null,
 		u_viewMatrix: null,
 		u_modelViewMatrix: null,
 		u_modelViewProjectionMatrix: null,
+		u_colorMult: [0.5, 0.5, 1, 0.8],
 		u_viewNormalMatrix: null,
 		u_clippingPlane: null,
-		u_colorMult: [0.5, 0.5, 1, 0.8]
+		u_normalMatrix: null,
+		u_lightPosition: null
 	};
 	let frontPlaneUniforms = {
 		u_modelViewProjectionMatrix: null,
@@ -648,6 +657,8 @@ function main() {
 			frontObjectUniforms.u_modelViewProjectionMatrix = m4.multiply(projectionMatrix, frontObjectUniforms.u_modelViewMatrix);
 			frontObjectUniforms.u_viewNormalMatrix = viewNormalMatrix;
 			frontObjectUniforms.u_clippingPlane = computeClipping(clippingFront, frontObjectTranslation, frontObjRotation);
+			frontObjectUniforms.u_normalMatrix = m4.normalFromMat4(computeModelMatrix(frontObjectTranslation, frontObjRotation));
+			frontObjectUniforms.u_lightPosition = lightPosition;
 
 			backObjectUniforms.u_modelMatrix = computeModelMatrix(backObjectTranslation, backObjRotation);
 			backObjectUniforms.u_viewMatrix = viewMatrix;
@@ -655,6 +666,8 @@ function main() {
 			backObjectUniforms.u_modelViewProjectionMatrix = m4.multiply(projectionMatrix, backObjectUniforms.u_modelViewMatrix);
 			backObjectUniforms.u_viewNormalMatrix = viewNormalMatrix;
 			backObjectUniforms.u_clippingPlane = computeClipping(clippingBack, backObjectTranslation, backObjRotation);
+			backObjectUniforms.u_normalMatrix = m4.normalFromMat4(computeModelMatrix(frontObjectTranslation, frontObjRotation));
+			backObjectUniforms.u_lightPosition = lightPosition;
 
 			// 对于不需要clipping的物体
 			frontPlaneUniforms.u_modelViewProjectionMatrix	= 
@@ -689,7 +702,12 @@ function main() {
 			// 设置uniform变量
 			webglUtils.setUniforms(programInfo, object.uniforms);
 			
-			if (!isClipped) {
+			// if (isClipped) {
+			// 	gl.depthMask(true);
+			// 	gl.disable(gl.BLEND);
+			// }
+			
+			{
 				if (renderOption.disableDepth) {
 					gl.disable(gl.DEPTH_TEST);
 				} else {
@@ -722,12 +740,7 @@ function main() {
 				} else {
 					gl.disable(gl.CULL_FACE);
 				}
-			} else {
-				gl.depthMask(true);
-				gl.disable(gl.BLEND);
-			}
-			
-			
+
 				// Stencil 相关
 				if (renderOption.useStencil) {
 					gl.enable(gl.STENCIL_TEST);
@@ -755,6 +768,7 @@ function main() {
 				if (renderOption.stencilFunc) {
 					gl.stencilFunc(renderOption.stencilFunc[0], renderOption.stencilFunc[1], renderOption.stencilFunc[2])
 				}
+			}
 			
 			
 			// 绘制3D图形
