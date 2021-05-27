@@ -117,6 +117,23 @@
 	}
 
 	/**
+	 * Reverse a vec3 initialized with the given vec3.
+	 * @param {Vector3} src the vector to reverse
+	 * @param {Vector3} [dst] optional vector to store result
+	 * @return {Vector3} dst or a new vector if none provided
+	 * @memberOf module:webgl-3d-math
+	 */
+		 function reverseVec3 (src, dst) {
+			dst = dst || new MatType(3);
+	
+			dst[0] = -src[0];
+			dst[1] = -src[1];
+			dst[2] = -src[2];
+	
+			return dst;
+		}
+
+	/**
 	 * Makes a vec3 initialized with the given values.
 	 * @param {Number} x X component
 	 * @param {Number} y Y component
@@ -131,6 +148,24 @@
 		dst[0] = x;
 		dst[1] = y;
 		dst[2] = z;
+
+		return dst;
+	}
+
+	/**
+	 * Multiply a src vec3 with the given value k.
+	 * @param {Vector3} src the vector to clone
+	 * @param {Number} k the number to multiply with
+	 * @param {Vector3} [dst] optional vector to store result
+	 * @return {Vector3} dst or a new vector if none provided
+	 * @memberOf module:webgl-3d-math
+	 */
+	 function multiplyVec3 (src, k, dst) {
+		dst = dst || new MatType(3);
+
+		dst[0] = src[0] * k;
+		dst[1] = src[1] * k;
+		dst[2] = src[2] * k;
 
 		return dst;
 	}
@@ -1442,7 +1477,6 @@
 	function transformVector(m, v, dst) {
 		dst = dst || new MatType(4);
 		for (var i = 0; i < 4; ++i) {
-			dst[i] = 0.0;
 			for (var j = 0; j < 4; ++j) {
 				dst[i] += v[j] * m[j * 4 + i];
 			}
@@ -1619,7 +1653,9 @@
 	return {
 		createVec3: createVec3,
 		cloneVec3: cloneVec3,
+		reverseVec3: reverseVec3,
 		createVec3FromValues: createVec3FromValues,
+		multiplyVec3: multiplyVec3,
 		createVec4: createVec4,
 		cloneVec4: cloneVec4,
 		reverseVec4: reverseVec4,

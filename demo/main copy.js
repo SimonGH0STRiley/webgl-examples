@@ -176,7 +176,7 @@ function main() {
 		void main() {
 			vec4 planeInEC = planeToEC(u_clippingPlane, u_viewMatrix, u_viewNormalMatrix);
 			float distance = calDistance(planeInEC, v_modelViewPosition);
-			if (distance < 0.0) {
+			if (distance < 1e-4) {
 				discard;
 			}
 			vec3 normal = normalize(v_normal);
@@ -214,6 +214,7 @@ function main() {
 			}
 		});
 	});
+
 	let planeInfo = {
 		xTranslation: 0,
 		yTranslation: 0,
@@ -266,19 +267,43 @@ function main() {
 	});
 	document.getElementById("resetButton").addEventListener("click", () => {
 		isClipped = false;
+		document.getElementsByName("slider").forEach(function (currDiv) {currDiv.value = 0});
+		document.getElementsByName("tag").forEach(function (currDiv) {currDiv.textContent = 0});
 		planeTransformMatrix = m4.identity();
 	});
+	document.getElementById("setCamera").addEventListener("click", () => {
+		cameraStatus = ++cameraStatus % 3;
+		if (cameraStatus !== 0) {
+			const planeNormal = m4.transformVector(m4.inverse(m4.transpose(planeTransformMatrix)), m4.createVec4FromValues(0, 1, 0, 0));
+			cameraNormal = (cameraStatus === 1) ? m4.normalize(planeNormal.slice(0, 3)) : m4.normalize(m4.reverseVec3(planeNormal.slice(0, 3)))
+			if (Math.abs(cameraNormal[1]) === 1) {
+				cameraNormal[2] = 1e-4;
+				cameraNormal = m4.normalize(cameraNormal);
+			}
+		} else {
+			cameraNormal = defaultCameraNormal;
+		}
+		
+	})
 
 	function degToRad(d) {
 		return d * Math.PI / 180;
 	}
 
-	let cameraAngleRadians = degToRad(0);
-	let fieldOfViewRadians = degToRad(60);
-	let cameraHeight = 50;
+	const cameraAngleRadians = degToRad(0);
+	const fieldOfViewRadians = degToRad(60);
+	const cameraHeight = 50;
 
-	const lightPosition = m4.normalize([20, 50, 50]);
+	const cameraDistance		= 50;
+	const targetPosition		= [0, 0, 0];
+	const defaultCameraNormal	= m4.normalize([20, 20, 50]);
+	const upNormal				= [0, 1, 0];
+	let cameraNormal			= defaultCameraNormal;
+
+	const lightPosition = m4.normalize([1, 2, 3]);
+
 	let isClipped = false;
+	let cameraStatus = 0;
 
 	let objectUniforms = {
 		u_modelViewProjectionMatrix: null,
@@ -296,11 +321,11 @@ function main() {
 	};
 	let planeUniforms = {
 		u_modelViewProjectionMatrix: null,
-		u_colorMult: [0.4, 0.88, 0.88, 0.5]
+		u_colorMult: [0.4, 0.88, 0.88, 0.6]
 	};
 	let planeInnerUniforms = {
 		u_modelViewProjectionMatrix: null,
-		u_colorMult: [0.84, 0.5, 0.12, 1]
+		u_colorMult: [0.84, 0.5, 0.12, 0.8]
 	};
 	let frontObjectUniforms = {
 		u_modelMatrix: null,
@@ -602,8 +627,8 @@ function main() {
 
 		// TODO: 实现光照后再决定使用哪个
 		gl.enable(gl.BLEND);
-		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-		// gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+		//gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+		gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 		// gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 		
 		gl.enable(gl.DEPTH_TEST);
@@ -613,22 +638,22 @@ function main() {
 		// Clear the canvas AND the depth buffer.
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
-		// Compute the projection matrix
-		let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-		let projectionMatrix = m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+		// Compute the projection matrix and the camera's matrix using look at.
 
-		// Compute the camera's matrix using look at.
-		let cameraPosition = [20, 20, 50];
-		let target = [0, 0, 0];
-		let up = [0, 1, 0];
-		let cameraMatrix = m4.lookAt(cameraPosition, target, up);
-		let viewMatrix = m4.inverse(cameraMatrix);
-		let viewNormalMatrix = m4.normalFromMat4(viewMatrix);
-		let viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
+		const cameraPosition	= m4.multiplyVec3(cameraNormal, cameraDistance);
+		const target 			= targetPosition;
+		const up				= upNormal;
+		const aspect 			= gl.canvas.clientWidth / gl.canvas.clientHeight;
 
-		let objectRotation		=  [ 0,  time,  0];
-		let frontObjRotation	=  [ 0,  time,  0];
-		let backObjRotation		=  [ 0,  time,  0];
+		const cameraMatrix		= m4.lookAt(cameraPosition, target, up);
+		const viewMatrix			= m4.inverse(cameraMatrix);
+		const projectionMatrix	= m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+		const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
+		const viewNormalMatrix	= m4.normalFromMat4(viewMatrix);
+
+		const objectRotation		=  [ 0,  0,  0];
+		const frontObjRotation	=  [ 0,  time,  0];
+		const backObjRotation		=  [ 0,  time,  0];
 
 		if (!isClipped) {
 			// 对每个物体计算矩阵
