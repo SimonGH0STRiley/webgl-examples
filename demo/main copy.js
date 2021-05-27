@@ -203,6 +203,7 @@ function main() {
 		['slinder',		primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 5, 5, 10)],
 		['cone',		primitives.createTruncatedConeWithVertexColorsBufferInfo(gl, 0, 5, 10)],
 	]);
+	const planeBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 30, 30, 1, 1, m4.identity());
 
 	let currentObjectKey = 'cube'; 
 	document.getElementById("objectList").addEventListener("change", () => {
@@ -215,6 +216,7 @@ function main() {
 		});
 	});
 
+	let planeTransformMatrix = m4.identity();
 	let planeInfo = {
 		xTranslation: 0,
 		yTranslation: 0,
@@ -222,13 +224,11 @@ function main() {
 		xRotation: 0,
 		zRotation: 0,
 	}
-	let planeTransformMatrix = m4.identity();
 	function updatePlaneTransformMatrix(translateX, translateY, translateZ, rotateX, rotateZ) {
 		planeTransformMatrix = m4.translation(translateX, translateY, translateZ);
 		planeTransformMatrix = m4.xRotate(planeTransformMatrix, degToRad(rotateX));
 		planeTransformMatrix = m4.zRotate(planeTransformMatrix, degToRad(rotateZ));
 	}
-	let planeBufferInfo	= primitives.createPlaneWithVertexColorsBufferInfo(gl, 30, 30, 1, 1, planeTransformMatrix);
 	document.getElementById("sliderList").addEventListener("input", (event) => {
 		const editProp = event.target.id;
 		const newValue = event.target.value;
@@ -270,6 +270,13 @@ function main() {
 		document.getElementsByName("slider").forEach(function (currDiv) {currDiv.value = 0});
 		document.getElementsByName("tag").forEach(function (currDiv) {currDiv.textContent = 0});
 		planeTransformMatrix = m4.identity();
+		planeInfo = {
+			xTranslation: 0,
+			yTranslation: 0,
+			zTranslation: 0,
+			xRotation: 0,
+			zRotation: 0,
+		}
 	});
 	document.getElementById("setCamera").addEventListener("click", () => {
 		cameraStatus = ++cameraStatus % 3;
@@ -290,9 +297,8 @@ function main() {
 		return d * Math.PI / 180;
 	}
 
-	const cameraAngleRadians = degToRad(0);
-	const fieldOfViewRadians = degToRad(60);
-	const cameraHeight = 50;
+	let isClipped = false;
+	let cameraStatus = 0;
 
 	const cameraDistance		= 50;
 	const targetPosition		= [0, 0, 0];
@@ -302,8 +308,14 @@ function main() {
 
 	const lightPosition = m4.normalize([1, 2, 3]);
 
-	let isClipped = false;
-	let cameraStatus = 0;
+	const cameraAngleRadian	= degToRad(0);
+	const fieldOfViewRadian	= degToRad(60);
+	const cameraHeight		= 50;
+	const aspect			= gl.canvas.clientWidth / gl.canvas.clientHeight;
+	const horizontalOffset	= gl.canvas.clientWidth / 40;
+	const verticalOffset	= gl.canvas.clientHeight / 40;
+	const nearOffset		= 1;
+	const farOffset			= 2000;
 
 	let objectUniforms = {
 		u_modelViewProjectionMatrix: null,
@@ -643,17 +655,18 @@ function main() {
 		const cameraPosition	= m4.multiplyVec3(cameraNormal, cameraDistance);
 		const target 			= targetPosition;
 		const up				= upNormal;
-		const aspect 			= gl.canvas.clientWidth / gl.canvas.clientHeight;
 
 		const cameraMatrix		= m4.lookAt(cameraPosition, target, up);
-		const viewMatrix			= m4.inverse(cameraMatrix);
-		const projectionMatrix	= m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+		const viewMatrix		= m4.inverse(cameraMatrix);
+		const projectionMatrix = (cameraStatus === 0) 
+			? m4.perspective(fieldOfViewRadian, aspect, nearOffset, farOffset)
+			: m4.orthographic(-horizontalOffset, horizontalOffset, -verticalOffset, verticalOffset, nearOffset, farOffset);
 		const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
 		const viewNormalMatrix	= m4.normalFromMat4(viewMatrix);
 
-		const objectRotation		=  [ 0,  0,  0];
+		const objectRotation	=  [ 0,  0,  0];
 		const frontObjRotation	=  [ 0,  time,  0];
-		const backObjRotation		=  [ 0,  time,  0];
+		const backObjRotation	=  [ 0,  time,  0];
 
 		if (!isClipped) {
 			// 对每个物体计算矩阵
