@@ -168,6 +168,93 @@ function main() {
 		});
 	});
 
+	let animationQueue = [
+		{
+			duration: 1000,
+			planeInfo: {
+				xTranslation: 0,
+				yTranslation: 0,
+				zTranslation: 0,
+				xRotation: 30,
+				zRotation: 45,
+			}
+		}
+	];
+	let animationPlaying = true;
+	let lastPlaneInfo = {
+		xTranslation: 0,
+		yTranslation: 0,
+		zTranslation: 0,
+		xRotation: 0,
+		zRotation: 0,
+	};
+	let animationTime = 0;
+	let animationLastTimestamp;
+	function animationInterpolate(from, to, timePercentage, interpolateFunc) {
+		if (!interpolateFunc || !interpolateFunc.call) {
+			// Fallback to linear interpolation
+			if (interpolateFunc)
+				console.warn("Animation: Fallback to linear interpolation")
+			interpolateFunc = (fromValue, toValue, timePercentage) => fromValue * (1 - timePercentage) + toValue * timePercentage;
+		}
+		let result = {};
+		for (let prop in from) {
+			const fromValue = from[prop];
+			const toValue = to[prop];
+			result[prop] = interpolateFunc(fromValue, toValue, timePercentage);
+		}
+		return result;
+	}
+	document.getElementById("runAnimation").addEventListener("click", () => {
+		animationQueue = animationQueue.concat([
+			{
+				duration: 1000,
+				planeInfo: {
+					xTranslation: 0,
+					yTranslation: 4,
+					zTranslation: 0,
+					xRotation: 0,
+					zRotation: 0,
+				},
+				interpolateFunc: function (from, to, percent) {
+					// Ease out square
+					return from + (to - from) * (1 - Math.pow(percent - 1, 2));
+				}
+			},
+			{
+				duration: 1000,
+				planeInfo: {
+					xTranslation: 2,
+					yTranslation: 0,
+					zTranslation: 0,
+					xRotation: 90,
+					zRotation: 90,
+				},
+				interpolateFunc: function (from, to, percent) {
+					// Ease out sine
+					return from + (to - from) * Math.sin(percent * Math.PI / 2);
+				}
+			},
+			{
+				duration: 1000,
+				planeInfo: {
+					xTranslation: 0,
+					yTranslation: 0,
+					zTranslation: 0,
+					xRotation: 30,
+					zRotation: 45,
+				},
+				interpolateFunc: function (from, to, percent) {
+					// Ease out cubic
+					return from + (to - from) * (1 + Math.pow(percent - 1, 3));
+				}
+			}
+		]);
+		Object.assign(lastPlaneInfo, planeInfo);
+		animationLastTimestamp = performance.now();
+		animationPlaying = true;
+	});
+
 	let planeTransformMatrix = m4.identity();
 	let planeInfo = {
 		xTranslation: 0,
@@ -184,7 +271,7 @@ function main() {
 	document.getElementById("sliderList").addEventListener("input", (event) => {
 		const editProp = event.target.id;
 		const newValue = event.target.value;
-		planeInfo[editProp] = newValue;
+		planeInfo[editProp] = Number(newValue);
 		document.getElementById(editProp + "Value").textContent = newValue;
 		updatePlaneTransformMatrix(planeInfo.xTranslation, planeInfo.yTranslation, planeInfo.zTranslation, planeInfo.xRotation, planeInfo.zRotation);
 	});
@@ -435,6 +522,42 @@ function main() {
 
 	// Draw the scene.
 	function drawScene(time) {
+		if (!animationLastTimestamp)
+			animationLastTimestamp = time;
+		const deltaTime = time - animationLastTimestamp;
+		animationLastTimestamp = time;
+		
+		if (animationPlaying) {
+			if (animationQueue.length === 0) {
+				animationPlaying = false;
+				animationTime = 0;
+			} else {
+				const elapsedTime = deltaTime + animationTime;
+				const nextAnimation = animationQueue[0];
+				if (elapsedTime >= nextAnimation.duration) {
+					// Finish one animation
+					animationTime = 0;
+					Object.assign(planeInfo, nextAnimation.planeInfo);
+					Object.assign(lastPlaneInfo, planeInfo);
+					animationQueue.shift();
+					if (animationQueue.length === 0) {
+						console.info("Animation: Animations end")
+						animationPlaying = false;
+					}
+						
+				} else {
+					animationTime = elapsedTime;
+					const timePercentage = elapsedTime / nextAnimation.duration;
+					const middlePlaneInfo = animationInterpolate(lastPlaneInfo, nextAnimation.planeInfo, timePercentage, nextAnimation.interpolateFunc);
+					Object.assign(planeInfo, middlePlaneInfo);
+				}
+				// TODO: 同步数值变化到界面
+				// console.log(JSON.stringify(planeInfo));
+				updatePlaneTransformMatrix(planeInfo.xTranslation, planeInfo.yTranslation, planeInfo.zTranslation, planeInfo.xRotation, planeInfo.zRotation);
+			}
+			
+		}
+
 		time *= 0.0005;
 
 		let lastUsedProgramInfo = null;
@@ -458,9 +581,7 @@ function main() {
 
 		const cameraMatrix		= m4.lookAt(m4.multiplyVec3(cameraNormal, cameraDistance), targetPosition, upNormal);
 		const viewMatrix		= m4.inverse(cameraMatrix);
-		const projectionMatrix = (cameraStatus === 0) 
-			? m4.perspective(fieldOfViewRadian, aspect, nearOffset, farOffset)
-			: m4.orthographic(-horizontalOffset, horizontalOffset, -verticalOffset, verticalOffset, nearOffset, farOffset);
+		const projectionMatrix 	= m4.orthographic(-horizontalOffset, horizontalOffset, -verticalOffset, verticalOffset, nearOffset, farOffset);
 		
 		const viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
 		const viewNormalMatrix	= m4.normalFromMat4(viewMatrix);
